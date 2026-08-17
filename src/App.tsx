@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { LoginPage } from './components/auth/LoginPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { PatientTable } from './components/patients/PatientTable'
@@ -6,10 +6,14 @@ import { CreatePatientModal } from './components/patients/CreatePatientModal'
 import { AttentionSessionModal } from './components/sessions/AttentionSessionModal'
 import { SessionHistoryView } from './components/sessions/SessionHistoryView'
 import { ToastContainer, showToast } from './components/ui/toast'
+import { Modal } from './components/ui/modal'
+import { Button } from './components/ui/button'
+import { Input } from './components/ui/input'
+import { Label } from './components/ui/label'
 import { storageService } from './services/storageService'
 import { Patient, SessionEvolution, User } from './types'
-
 import { supabase, isSupabaseConfigured } from './lib/supabase'
+import { KeyRound } from 'lucide-react'
 
 export function App() {
   // Auth state
@@ -28,6 +32,12 @@ export function App() {
   const [selectedPatientForAttention, setSelectedPatientForAttention] =
     useState<Patient | null>(null)
   const [isAttentionModalOpen, setIsAttentionModalOpen] = useState(false)
+
+  // Password Recovery state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
 
   // Initial load
   useEffect(() => {
@@ -52,6 +62,36 @@ export function App() {
         } else {
           setUser(null)
           storageService.clearUser()
+        }
+
+        // Listener for Password Recovery and Auth Events
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+              setIsResetModalOpen(true)
+            } else if (event === 'SIGNED_IN' && session?.user) {
+              const authUser: User = {
+                id: session.user.id,
+                nombre:
+                  session.user.user_metadata?.nombre ||
+                  session.user.email?.split('@')[0] ||
+                  'Terapeuta Ocupacional',
+                email: session.user.email || '',
+                avatarUrl:
+                  session.user.user_metadata?.avatarUrl ||
+                  'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+              }
+              setUser(authUser)
+              storageService.setUser(authUser)
+            } else if (event === 'SIGNED_OUT') {
+              setUser(null)
+              storageService.clearUser()
+            }
+          }
+        )
+
+        return () => {
+          authListener.subscription.unsubscribe()
         }
       } else {
         const savedUser = storageService.getUser()
@@ -126,6 +166,70 @@ export function App() {
     refreshData()
   }
 
+  // Update Password after Recovery Link
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newPassword || newPassword.length < 6) {
+      showToast({
+        title: 'Contraseña muy corta',
+        description: 'La contraseña debe tener al menos 6 caracteres.',
+        type: 'error'
+      })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      showToast({
+        title: 'Las contraseñas no coinciden',
+        description: 'Verifica que ambas contraseñas sean idénticas.',
+        type: 'error'
+      })
+      return
+    }
+
+    setIsUpdatingPassword(true)
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword
+        })
+
+        setIsUpdatingPassword(false)
+
+        if (error) {
+          showToast({
+            title: 'Error al actualizar',
+            description: error.message,
+            type: 'error'
+          })
+          return
+        }
+
+        setIsResetModalOpen(false)
+        setNewPassword('')
+        setConfirmPassword('')
+        showToast({
+          title: '¡Contraseña Actualizada!',
+          description: 'Tu nueva contraseña ha sido guardada con éxito.',
+          type: 'success'
+        })
+        return
+      } catch (err: any) {
+        setIsUpdatingPassword(false)
+        showToast({
+          title: 'Error',
+          description: 'No se pudo actualizar la contraseña.',
+          type: 'error'
+        })
+        return
+      }
+    }
+
+    setIsUpdatingPassword(false)
+    setIsResetModalOpen(false)
+  }
+
   if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#fafafa]">
@@ -142,6 +246,67 @@ export function App() {
     return (
       <>
         <LoginPage onLoginSuccess={handleLoginSuccess} />
+        {/* Reset Password Modal in case user lands on recovery URL */}
+        <Modal
+          isOpen={isResetModalOpen}
+          onClose={() => setIsResetModalOpen(false)}
+          title={
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-lime-600" />
+              <span>Establecer Nueva Contraseña</span>
+            </div>
+          }
+          description="Ingresa tu nueva contraseña para acceder a la aplicación."
+          size="sm"
+        >
+          <form onSubmit={handleUpdatePassword} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="newPassword" required>
+                Nueva Contraseña
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" required>
+                Confirmar Contraseña
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Repite la contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsResetModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant="lime"
+                disabled={isUpdatingPassword}
+              >
+                {isUpdatingPassword ? 'Guardando...' : 'Guardar Contraseña'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
         <ToastContainer />
       </>
     )
@@ -193,6 +358,68 @@ export function App() {
         patient={selectedPatientForAttention}
         onSessionSaved={refreshData}
       />
+
+      {/* Reset Password Modal */}
+      <Modal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        title={
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-5 h-5 text-lime-600" />
+            <span>Establecer Nueva Contraseña</span>
+          </div>
+        }
+        description="Ingresa tu nueva contraseña para acceder a la aplicación."
+        size="sm"
+      >
+        <form onSubmit={handleUpdatePassword} className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="newPasswordAuth" required>
+              Nueva Contraseña
+            </Label>
+            <Input
+              id="newPasswordAuth"
+              type="password"
+              placeholder="Mínimo 6 caracteres"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPasswordAuth" required>
+              Confirmar Contraseña
+            </Label>
+            <Input
+              id="confirmPasswordAuth"
+              type="password"
+              placeholder="Repite la contraseña"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsResetModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="lime"
+              disabled={isUpdatingPassword}
+            >
+              {isUpdatingPassword ? 'Guardando...' : 'Guardar Contraseña'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Global Toast Notifications */}
       <ToastContainer />

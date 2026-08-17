@@ -118,7 +118,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim())
+        const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim(), {
+          redirectTo: window.location.origin
+        })
         setIsRecovering(false)
         if (error) {
           showToast({
@@ -132,7 +134,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         setRecoveryEmail('')
         showToast({
           title: 'Enlace enviado',
-          description: `Se enviaron las instrucciones a ${recoveryEmail}.`,
+          description: `Se envió un correo de recuperación a ${recoveryEmail}. Revisa tu bandeja de entrada.`,
           type: 'success'
         })
         return
