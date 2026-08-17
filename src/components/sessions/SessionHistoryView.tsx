@@ -69,9 +69,9 @@ export function SessionHistoryView({
     })
   }, [sessions, searchTerm, statusFilter])
 
-  const handleDeleteSession = (sessionId: string) => {
+  const handleDeleteSession = async (sessionId: string) => {
     if (confirm('¿Estás seguro de eliminar este registro de atención?')) {
-      storageService.deleteSession(sessionId)
+      await storageService.deleteSession(sessionId)
       showToast({
         title: 'Atención Eliminada',
         description: 'El registro ha sido eliminado del historial.',

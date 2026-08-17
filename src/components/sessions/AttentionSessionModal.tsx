@@ -69,10 +69,15 @@ export function AttentionSessionModal({
 
   // Load past sessions and initialize form when patient changes
   useEffect(() => {
+    let isMounted = true
     if (patient && isOpen) {
-      const sessions = storageService.getSessionsByPatientId(patient.id)
-      setPastSessions(sessions)
+      storageService.getSessionsByPatientId(patient.id).then((sessions) => {
+        if (isMounted) setPastSessions(sessions)
+      })
       initNewSession()
+    }
+    return () => {
+      isMounted = false
     }
   }, [patient, isOpen])
 
@@ -124,7 +129,7 @@ export function AttentionSessionModal({
   }
 
   // Save Evolution Session
-  const handleSaveEvolution = (e: React.FormEvent) => {
+  const handleSaveEvolution = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!patient) return
 
@@ -141,8 +146,8 @@ export function AttentionSessionModal({
 
     setIsSaving(true)
 
-    setTimeout(() => {
-      storageService.addSession({
+    try {
+      await storageService.addSession({
         pacienteId: patient.id,
         pacienteNombre: patient.nombre,
         pacienteRut: patient.rut,
@@ -159,13 +164,20 @@ export function AttentionSessionModal({
       })
 
       // Refresh patient sessions
-      const updatedSessions = storageService.getSessionsByPatientId(patient.id)
+      const updatedSessions = await storageService.getSessionsByPatientId(patient.id)
       setPastSessions(updatedSessions)
 
       if (onSessionSaved) {
         onSessionSaved()
       }
-    }, 400)
+    } catch (err) {
+      setIsSaving(false)
+      showToast({
+        title: 'Error al guardar',
+        description: 'Ocurrió un problema al guardar la evolución.',
+        type: 'error'
+      })
+    }
   }
 
   if (!patient) return null

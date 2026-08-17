@@ -1,10 +1,11 @@
 import { Patient, SessionEvolution } from '../types'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 const PATIENTS_STORAGE_KEY = 'to_app_patients_v1'
 const SESSIONS_STORAGE_KEY = 'to_app_sessions_v1'
 const USER_STORAGE_KEY = 'to_app_user_v1'
 
-// Datos iniciales de demostración contextualizados en Terapia Ocupacional
+// Datos iniciales de demostración
 const INITIAL_PATIENTS: Patient[] = [
   {
     id: 'pat-1',
@@ -41,24 +42,6 @@ const INITIAL_PATIENTS: Patient[] = [
       resultados: 'PEDI Autocuidado: puntuación estándar 32. Requiere plan de estimulación para pinza tridigital y praxias ideomotoras.'
     },
     createdAt: '2026-04-10T14:30:00.000Z'
-  },
-  {
-    id: 'pat-3',
-    nombre: 'Agustín Tapia Muñoz',
-    rut: '20.987.654-3',
-    edad: 11,
-    telefono: '+56 9 9123 4567',
-    correo: 'r.tapia@outlook.cl',
-    cuidador: 'Roberto Tapia (Padre)',
-    motivoConsulta: 'Déficit de autorregulación emocional y coordinación motriz gruesa.',
-    fechaIngreso: '2026-05-15',
-    evaluacion: {
-      motivoConsultaDetalle: 'Dificultades para modular niveles de alerta en aula y frustración ante desafíos motores grupales.',
-      evaluacionInicial: 'Buen contacto visual, lenguaje fluido. Dificultad en modulación sensorial y control postural antigravitatorio en bipedestación.',
-      instrumentosAplicados: 'SIPT (subpruebas vestibulares), SPM (Sensory Processing Measure), Cuestionario de Rutina Ocupacional.',
-      resultados: 'Puntajes atípicos en búsqueda propioceptiva y planeamiento motor bilateral. Alta motivación por actividades de escalada y circuitos.'
-    },
-    createdAt: '2026-05-15T09:15:00.000Z'
   }
 ]
 
@@ -79,43 +62,106 @@ const INITIAL_SESSIONS: SessionEvolution[] = [
         id: 'obj-2',
         descripcion: 'Mantener prensión trípode dinámica en recorte de líneas rectas',
         estado: 'parcialmente_logrado'
-      },
-      {
-        id: 'obj-3',
-        descripcion: 'Completar circuito propioceptivo sin desorganización conductual',
-        estado: 'logrado'
       }
     ],
-    descripcionSesion: 'Se inicia sesión con preparación sensoriomotriz en hamaca vestibular y arrastre en patineta. Mateo participa activamente. Logra tolerar slime adicionando elementos pequeños para rescate con pinzas. Al graficar muestra menor tensión en trazo pero aún requiere recordatorio postural.',
+    descripcionSesion: 'Se inicia sesión con preparación sensoriomotriz en hamaca vestibular y arrastre en patineta. Mateo participa activamente.',
     createdAt: '2026-08-10T16:30:00.000Z'
-  },
-  {
-    id: 'ses-2',
-    pacienteId: 'pat-2',
-    pacienteNombre: 'Sofía Valenzuela Morales',
-    pacienteRut: '24.112.345-8',
-    fechaHora: '2026-08-12T11:00',
-    objetivos: [
-      {
-        id: 'obj-4',
-        descripcion: 'Desabotonar botones grandes de 2.5cm de forma independiente',
-        estado: 'logrado'
-      },
-      {
-        id: 'obj-5',
-        descripcion: 'Orientar polera según etiqueta y colocársela con asistencia mínima',
-        estado: 'parcialmente_logrado'
-      }
-    ],
-    descripcionSesion: 'Se entrena secuencia de vestido mediante muñecos de tela y luego en sí misma frente a espejo. Sofía logra desabotonar 4 de 4 botones. En postura de polera identifica cuello pero requiere asistencia verbal para pasar los brazos.',
-    createdAt: '2026-08-12T12:00:00.000Z'
   }
 ]
 
-// Funciones del repositorio
+// Mapeos de DB a TypeScript
+interface DbPatientRow {
+  id: string
+  nombre: string
+  rut: string
+  edad: number | null
+  telefono: string | null
+  correo: string | null
+  cuidador: string | null
+  motivo_consulta: string | null
+  fecha_ingreso: string | null
+  motivo_consulta_detalle: string | null
+  evaluacion_inicial: string | null
+  instrumentos_aplicados: string | null
+  resultados: string | null
+  created_at: string
+}
+
+interface DbSessionRow {
+  id: string
+  paciente_id: string
+  paciente_nombre: string
+  paciente_rut: string
+  fecha_hora: string
+  objetivos: any
+  descripcion_sesion: string
+  created_at: string
+}
+
+function mapDbToPatient(row: DbPatientRow): Patient {
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    rut: row.rut,
+    edad: row.edad ?? '',
+    telefono: row.telefono ?? '',
+    correo: row.correo ?? '',
+    cuidador: row.cuidador ?? '',
+    motivoConsulta: row.motivo_consulta ?? '',
+    fechaIngreso: row.fecha_ingreso ?? new Date().toISOString().split('T')[0],
+    evaluacion: {
+      motivoConsultaDetalle: row.motivo_consulta_detalle ?? '',
+      evaluacionInicial: row.evaluacion_inicial ?? '',
+      instrumentosAplicados: row.instrumentos_aplicados ?? '',
+      resultados: row.resultados ?? ''
+    },
+    createdAt: row.created_at
+  }
+}
+
+function mapDbToSession(row: DbSessionRow): SessionEvolution {
+  return {
+    id: row.id,
+    pacienteId: row.paciente_id,
+    pacienteNombre: row.paciente_nombre,
+    pacienteRut: row.paciente_rut,
+    fechaHora: row.fecha_hora,
+    objetivos: Array.isArray(row.objetivos) ? row.objetivos : [],
+    descripcionSesion: row.descripcion_sesion ?? '',
+    createdAt: row.created_at
+  }
+}
+
 export const storageService = {
-  // Pacientes
-  getPatients(): Patient[] {
+  isSupabaseActive(): boolean {
+    return isSupabaseConfigured && supabase !== null
+  },
+
+  // ==========================================
+  // PACIENTES
+  // ==========================================
+  async getPatients(): Promise<Patient[]> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { data, error } = await supabase!
+          .from('patients')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Error cargando pacientes de Supabase:', error)
+          return this.getLocalPatients()
+        }
+        return (data as DbPatientRow[]).map(mapDbToPatient)
+      } catch (err) {
+        console.error('Fallo de conexión a Supabase:', err)
+        return this.getLocalPatients()
+      }
+    }
+    return this.getLocalPatients()
+  },
+
+  getLocalPatients(): Patient[] {
     const raw = localStorage.getItem(PATIENTS_STORAGE_KEY)
     if (!raw) {
       localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(INITIAL_PATIENTS))
@@ -128,46 +174,97 @@ export const storageService = {
     }
   },
 
-  savePatients(patients: Patient[]): void {
-    localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(patients))
-  },
+  async addPatient(patientData: Omit<Patient, 'id' | 'createdAt'>): Promise<Patient> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { data, error } = await supabase!
+          .from('patients')
+          .insert({
+            nombre: patientData.nombre,
+            rut: patientData.rut,
+            edad: patientData.edad ? Number(patientData.edad) : null,
+            telefono: patientData.telefono || null,
+            correo: patientData.correo || null,
+            cuidador: patientData.cuidador || null,
+            motivo_consulta: patientData.motivoConsulta || null,
+            fecha_ingreso: patientData.fechaIngreso || null,
+            motivo_consulta_detalle: patientData.evaluacion?.motivoConsultaDetalle || null,
+            evaluacion_inicial: patientData.evaluacion?.evaluacionInicial || null,
+            instrumentos_aplicados: patientData.evaluacion?.instrumentosAplicados || null,
+            resultados: patientData.evaluacion?.resultados || null
+          })
+          .select()
+          .single()
 
-  getPatientById(id: string): Patient | undefined {
-    const patients = this.getPatients()
-    return patients.find(p => p.id === id)
-  },
+        if (error) {
+          console.error('Error insertando paciente en Supabase:', error)
+        } else if (data) {
+          return mapDbToPatient(data as DbPatientRow)
+        }
+      } catch (err) {
+        console.error('Excepción al guardar paciente en Supabase:', err)
+      }
+    }
 
-  addPatient(patientData: Omit<Patient, 'id' | 'createdAt'>): Patient {
-    const patients = this.getPatients()
+    // Fallback local
+    const local = this.getLocalPatients()
     const newPatient: Patient = {
       ...patientData,
       id: 'pat-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
       createdAt: new Date().toISOString()
     }
-    patients.unshift(newPatient)
-    this.savePatients(patients)
+    local.unshift(newPatient)
+    localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(local))
     return newPatient
   },
 
-  updatePatient(id: string, updates: Partial<Patient>): Patient | null {
-    const patients = this.getPatients()
-    const index = patients.findIndex(p => p.id === id)
-    if (index === -1) return null
-    patients[index] = { ...patients[index], ...updates, updatedAt: new Date().toISOString() }
-    this.savePatients(patients)
-    return patients[index]
-  },
+  async deletePatient(id: string): Promise<boolean> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { error } = await supabase!
+          .from('patients')
+          .delete()
+          .eq('id', id)
 
-  deletePatient(id: string): boolean {
-    const patients = this.getPatients()
-    const filtered = patients.filter(p => p.id !== id)
-    if (filtered.length === patients.length) return false
-    this.savePatients(filtered)
+        if (error) {
+          console.error('Error eliminando paciente en Supabase:', error)
+        }
+      } catch (err) {
+        console.error('Excepción al eliminar paciente en Supabase:', err)
+      }
+    }
+
+    const local = this.getLocalPatients()
+    const filtered = local.filter(p => p.id !== id)
+    localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(filtered))
     return true
   },
 
-  // Sesiones de Evolución
-  getSessions(): SessionEvolution[] {
+  // ==========================================
+  // SESIONES / EVOLUCIONES
+  // ==========================================
+  async getSessions(): Promise<SessionEvolution[]> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { data, error } = await supabase!
+          .from('sessions')
+          .select('*')
+          .order('fecha_hora', { ascending: false })
+
+        if (error) {
+          console.error('Error cargando sesiones de Supabase:', error)
+          return this.getLocalSessions()
+        }
+        return (data as DbSessionRow[]).map(mapDbToSession)
+      } catch (err) {
+        console.error('Fallo de conexión a sesiones Supabase:', err)
+        return this.getLocalSessions()
+      }
+    }
+    return this.getLocalSessions()
+  },
+
+  getLocalSessions(): SessionEvolution[] {
     const raw = localStorage.getItem(SESSIONS_STORAGE_KEY)
     if (!raw) {
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(INITIAL_SESSIONS))
@@ -180,43 +277,79 @@ export const storageService = {
     }
   },
 
-  saveSessions(sessions: SessionEvolution[]): void {
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
-  },
-
-  getSessionsByPatientId(pacienteId: string): SessionEvolution[] {
-    const sessions = this.getSessions()
+  async getSessionsByPatientId(pacienteId: string): Promise<SessionEvolution[]> {
+    const sessions = await this.getSessions()
     return sessions
       .filter(s => s.pacienteId === pacienteId)
       .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime())
   },
 
-  addSession(sessionData: Omit<SessionEvolution, 'id' | 'createdAt'>): SessionEvolution {
-    const sessions = this.getSessions()
+  async addSession(sessionData: Omit<SessionEvolution, 'id' | 'createdAt'>): Promise<SessionEvolution> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { data, error } = await supabase!
+          .from('sessions')
+          .insert({
+            paciente_id: sessionData.pacienteId.startsWith('pat-') ? null : sessionData.pacienteId,
+            paciente_nombre: sessionData.pacienteNombre,
+            paciente_rut: sessionData.pacienteRut,
+            fecha_hora: sessionData.fechaHora,
+            objetivos: sessionData.objetivos,
+            descripcion_sesion: sessionData.descripcionSesion
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error insertando sesión en Supabase:', error)
+        } else if (data) {
+          return mapDbToSession(data as DbSessionRow)
+        }
+      } catch (err) {
+        console.error('Excepción al guardar sesión en Supabase:', err)
+      }
+    }
+
+    // Fallback local
+    const local = this.getLocalSessions()
     const newSession: SessionEvolution = {
       ...sessionData,
       id: 'ses-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
       createdAt: new Date().toISOString()
     }
-    sessions.unshift(newSession)
-    this.saveSessions(sessions)
+    local.unshift(newSession)
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(local))
     return newSession
   },
 
-  deleteSession(id: string): boolean {
-    const sessions = this.getSessions()
-    const filtered = sessions.filter(s => s.id !== id)
-    if (filtered.length === sessions.length) return false
-    this.saveSessions(filtered)
+  async deleteSession(id: string): Promise<boolean> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { error } = await supabase!
+          .from('sessions')
+          .delete()
+          .eq('id', id)
+
+        if (error) {
+          console.error('Error eliminando sesión en Supabase:', error)
+        }
+      } catch (err) {
+        console.error('Excepción al eliminar sesión en Supabase:', err)
+      }
+    }
+
+    const local = this.getLocalSessions()
+    const filtered = local.filter(s => s.id !== id)
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(filtered))
     return true
   },
 
-  // Usuario / Sesión
+  // ==========================================
+  // USUARIO / AUTH LOCAL
+  // ==========================================
   getUser() {
     const raw = localStorage.getItem(USER_STORAGE_KEY)
-    if (!raw) {
-      return null
-    }
+    if (!raw) return null
     try {
       return JSON.parse(raw)
     } catch {

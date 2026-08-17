@@ -1,6 +1,7 @@
-import { Activity, Users, ClipboardList, LogOut } from 'lucide-react'
+import { Activity, Users, ClipboardList, LogOut, Database, HardDrive } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { User } from '@/types'
+import { isSupabaseConfigured } from '@/lib/supabase'
 
 interface SidebarProps {
   activeTab: 'patients' | 'history'
@@ -38,14 +39,28 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Quick info chip */}
+        {/* Quick info chip con estado de Supabase / Local */}
         <div className="bg-zinc-900 text-white rounded-xl p-3 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
-            <span className="text-xs font-semibold">Portal Activo</span>
+            <div
+              className={cn(
+                "w-2 h-2 rounded-full",
+                isSupabaseConfigured
+                  ? "bg-lime-400 animate-pulse"
+                  : "bg-amber-400"
+              )}
+            />
+            <span className="text-xs font-semibold">
+              {isSupabaseConfigured ? 'Supabase Conectado' : 'Modo Local'}
+            </span>
           </div>
-          <span className="text-[11px] px-2 py-0.5 bg-zinc-800 text-lime-300 rounded-full font-mono font-medium">
-            v1.0
+          <span className="text-[11px] px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded-full font-mono font-medium flex items-center gap-1">
+            {isSupabaseConfigured ? (
+              <Database className="w-3 h-3 text-lime-400" />
+            ) : (
+              <HardDrive className="w-3 h-3 text-amber-400" />
+            )}
+            {isSupabaseConfigured ? 'Cloud' : 'Local'}
           </span>
         </div>
 

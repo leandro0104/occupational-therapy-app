@@ -29,23 +29,34 @@ export function App() {
 
   // Initial load
   useEffect(() => {
-    const savedUser = storageService.getUser()
-    if (savedUser) {
-      setUser(savedUser)
+    const init = async () => {
+      const savedUser = storageService.getUser()
+      if (savedUser) {
+        setUser(savedUser)
+      }
+      await refreshData()
+      setIsInitializing(false)
     }
-    refreshData()
-    setIsInitializing(false)
+    init()
   }, [])
 
-  const refreshData = () => {
-    setPatients(storageService.getPatients())
-    setSessions(storageService.getSessions())
+  const refreshData = async () => {
+    try {
+      const [fetchedPatients, fetchedSessions] = await Promise.all([
+        storageService.getPatients(),
+        storageService.getSessions()
+      ])
+      setPatients(fetchedPatients)
+      setSessions(fetchedSessions)
+    } catch (err) {
+      console.error('Error refrescando datos:', err)
+    }
   }
 
   // Handlers
-  const handleLoginSuccess = (loggedInUser: User) => {
+  const handleLoginSuccess = async (loggedInUser: User) => {
     setUser(loggedInUser)
-    refreshData()
+    await refreshData()
   }
 
   const handleLogout = () => {
@@ -58,21 +69,21 @@ export function App() {
     })
   }
 
-  const handleCreatePatient = (
+  const handleCreatePatient = async (
     newPatientData: Omit<Patient, 'id' | 'createdAt'>
   ) => {
-    storageService.addPatient(newPatientData)
-    refreshData()
+    await storageService.addPatient(newPatientData)
+    await refreshData()
   }
 
-  const handleDeletePatient = (patientId: string) => {
-    storageService.deletePatient(patientId)
+  const handleDeletePatient = async (patientId: string) => {
+    await storageService.deletePatient(patientId)
     showToast({
       title: 'Usuario Eliminado',
       description: 'El paciente ha sido removido del sistema.',
       type: 'info'
     })
-    refreshData()
+    await refreshData()
   }
 
   const handleOpenAttentionModal = (patient: Patient) => {
