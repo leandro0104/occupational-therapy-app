@@ -41,69 +41,90 @@ export function App() {
 
   // Initial load
   useEffect(() => {
-    const init = async () => {
-      // 1. Check Supabase session if configured
-      if (isSupabaseConfigured && supabase) {
-        const { data } = await supabase.auth.getSession()
-        if (data.session?.user) {
-          const authUser: User = {
-            id: data.session.user.id,
-            nombre:
-              data.session.user.user_metadata?.nombre ||
-              data.session.user.email?.split('@')[0] ||
-              'Terapeuta Ocupacional',
-            email: data.session.user.email || '',
-            avatarUrl:
-              data.session.user.user_metadata?.avatarUrl ||
-              'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
-          }
-          setUser(authUser)
-          storageService.setUser(authUser)
-        } else {
-          setUser(null)
-          storageService.clearUser()
-        }
+    let isMounted = true
 
-        // Listener for Password Recovery and Auth Events
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            if (event === 'PASSWORD_RECOVERY') {
-              setIsResetModalOpen(true)
-            } else if (event === 'SIGNED_IN' && session?.user) {
+    const init = async () => {
+      try {
+        // 1. Check Supabase session if configured
+        if (isSupabaseConfigured && supabase) {
+          try {
+            const { data } = await supabase.auth.getSession()
+            if (data.session?.user && isMounted) {
               const authUser: User = {
-                id: session.user.id,
+                id: data.session.user.id,
                 nombre:
-                  session.user.user_metadata?.nombre ||
-                  session.user.email?.split('@')[0] ||
+                  data.session.user.user_metadata?.nombre ||
+                  data.session.user.email?.split('@')[0] ||
                   'Terapeuta Ocupacional',
-                email: session.user.email || '',
+                email: data.session.user.email || '',
                 avatarUrl:
-                  session.user.user_metadata?.avatarUrl ||
+                  data.session.user.user_metadata?.avatarUrl ||
                   'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
               }
               setUser(authUser)
               storageService.setUser(authUser)
-            } else if (event === 'SIGNED_OUT') {
-              setUser(null)
-              storageService.clearUser()
             }
+          } catch (authErr) {
+            console.warn('Error verificando sesión de Supabase:', authErr)
           }
-        )
 
-        return () => {
-          authListener.subscription.unsubscribe()
+          // Listener for Password Recovery and Auth Events
+          const { data: authListener } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+              if (!isMounted) return
+              if (event === 'PASSWORD_RECOVERY') {
+                setIsResetModalOpen(true)
+              } else if (event === 'SIGNED_IN' && session?.user) {
+                const authUser: User = {
+                  id: session.user.id,
+                  nombre:
+                    session.user.user_metadata?.nombre ||
+                    session.user.email?.split('@')[0] ||
+                    'Terapeuta Ocupacional',
+                  email: session.user.email || '',
+                  avatarUrl:
+                    session.user.user_metadata?.avatarUrl ||
+                    'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+                }
+                setUser(authUser)
+                storageService.setUser(authUser)
+              } else if (event === 'SIGNED_OUT') {
+                setUser(null)
+                storageService.clearUser()
+              }
+            }
+          )
+
+          // Timeout de seguridad de 3 segundos para cargar datos iniciales
+          await Promise.race([
+            refreshData(),
+            new Promise((resolve) => setTimeout(resolve, 2000))
+          ])
+
+          return () => {
+            authListener.subscription.unsubscribe()
+          }
+        } else {
+          const savedUser = storageService.getUser()
+          if (savedUser && isMounted) {
+            setUser(savedUser)
+          }
+          await refreshData()
         }
-      } else {
-        const savedUser = storageService.getUser()
-        if (savedUser) {
-          setUser(savedUser)
+      } catch (err) {
+        console.error('Error durante la inicialización:', err)
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false)
         }
       }
-
-      await refreshData()
-      setIsInitializing(false)
     }
+
     init()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const refreshData = async () => {
