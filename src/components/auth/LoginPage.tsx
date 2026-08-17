@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Modal } from '@/components/ui/modal'
 import { showToast } from '@/components/ui/toast'
 import { storageService } from '@/services/storageService'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { User } from '@/types'
 
 interface LoginPageProps {
@@ -13,8 +14,8 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const [email, setEmail] = useState('terapeuta@to-app.cl')
-  const [password, setPassword] = useState('••••••••')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   // Modal recuperar contraseña
@@ -22,7 +23,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [isRecovering, setIsRecovering] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) {
       showToast({
@@ -34,17 +35,67 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
 
     setIsLoading(true)
+
+    // Si Supabase está configurado, autenticamos con Supabase Auth
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim()
+        })
+
+        if (error) {
+          setIsLoading(false)
+          showToast({
+            title: 'Error de autenticación',
+            description: error.message === 'Invalid login credentials'
+              ? 'Correo o contraseña incorrectos. Verifica tus datos.'
+              : error.message,
+            type: 'error'
+          })
+          return
+        }
+
+        if (data.user) {
+          const user: User = {
+            id: data.user.id,
+            nombre: data.user.user_metadata?.nombre || data.user.email?.split('@')[0] || 'Terapeuta Ocupacional',
+            email: data.user.email || email,
+            avatarUrl: data.user.user_metadata?.avatarUrl || 'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+          }
+          storageService.setUser(user)
+          setIsLoading(false)
+          showToast({
+            title: '¡Sesión iniciada!',
+            description: `Bienvenida ${user.nombre}`,
+            type: 'success'
+          })
+          onLoginSuccess(user)
+          return
+        }
+      } catch (err: any) {
+        setIsLoading(false)
+        showToast({
+          title: 'Error de conexión',
+          description: 'No se pudo contactar a Supabase. Verifica tu red.',
+          type: 'error'
+        })
+        return
+      }
+    }
+
+    // Fallback Modo Local (si aún no se configura .env)
     setTimeout(() => {
       setIsLoading(false)
       const user: User = {
         id: 'usr-1',
-        nombre: 'Dra. Daniela Rojas',
+        nombre: 'Dra. Terapeuta Ocupacional',
         email: email,
         avatarUrl: 'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
       }
       storageService.setUser(user)
       showToast({
-        title: '¡Sesión iniciada!',
+        title: '¡Sesión iniciada (Modo Local)!',
         description: `Bienvenida ${user.nombre}`,
         type: 'success'
       })
@@ -52,7 +103,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }, 400)
   }
 
-  const handleRecoverPassword = (e: React.FormEvent) => {
+  const handleRecoverPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!recoveryEmail) {
       showToast({
@@ -64,12 +115,45 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
 
     setIsRecovering(true)
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail.trim())
+        setIsRecovering(false)
+        if (error) {
+          showToast({
+            title: 'Error al enviar enlace',
+            description: error.message,
+            type: 'error'
+          })
+          return
+        }
+        setIsForgotModalOpen(false)
+        setRecoveryEmail('')
+        showToast({
+          title: 'Enlace enviado',
+          description: `Se enviaron las instrucciones a ${recoveryEmail}.`,
+          type: 'success'
+        })
+        return
+      } catch (err: any) {
+        setIsRecovering(false)
+        showToast({
+          title: 'Error',
+          description: 'No se pudo procesar la solicitud.',
+          type: 'error'
+        })
+        return
+      }
+    }
+
+    // Fallback local
     setTimeout(() => {
       setIsRecovering(false)
       setIsForgotModalOpen(false)
       setRecoveryEmail('')
       showToast({
-        title: 'Enlace enviado',
+        title: 'Enlace enviado (Simulado)',
         description: `Se han enviado las instrucciones de recuperación a ${recoveryEmail}.`,
         type: 'success'
       })

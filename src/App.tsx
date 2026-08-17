@@ -9,6 +9,8 @@ import { ToastContainer, showToast } from './components/ui/toast'
 import { storageService } from './services/storageService'
 import { Patient, SessionEvolution, User } from './types'
 
+import { supabase, isSupabaseConfigured } from './lib/supabase'
+
 export function App() {
   // Auth state
   const [user, setUser] = useState<User | null>(null)
@@ -30,10 +32,34 @@ export function App() {
   // Initial load
   useEffect(() => {
     const init = async () => {
-      const savedUser = storageService.getUser()
-      if (savedUser) {
-        setUser(savedUser)
+      // 1. Check Supabase session if configured
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase.auth.getSession()
+        if (data.session?.user) {
+          const authUser: User = {
+            id: data.session.user.id,
+            nombre:
+              data.session.user.user_metadata?.nombre ||
+              data.session.user.email?.split('@')[0] ||
+              'Terapeuta Ocupacional',
+            email: data.session.user.email || '',
+            avatarUrl:
+              data.session.user.user_metadata?.avatarUrl ||
+              'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+          }
+          setUser(authUser)
+          storageService.setUser(authUser)
+        } else {
+          setUser(null)
+          storageService.clearUser()
+        }
+      } else {
+        const savedUser = storageService.getUser()
+        if (savedUser) {
+          setUser(savedUser)
+        }
       }
+
       await refreshData()
       setIsInitializing(false)
     }
@@ -59,7 +85,10 @@ export function App() {
     await refreshData()
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isSupabaseConfigured && supabase) {
+      await supabase.auth.signOut()
+    }
     storageService.clearUser()
     setUser(null)
     showToast({

@@ -1,6 +1,5 @@
 -- ==============================================================================
--- ESQUEMA DE BASE DE DATOS SUPABASE: APP TERAPIA OCUPACIONAL
--- Copia y pega este script completo en el SQL Editor de tu proyecto en Supabase
+-- ESQUEMA DE BASE DE DATOS SUPABASE: APP TERAPIA OCUPACIONAL (USO PERSONAL)
 -- ==============================================================================
 
 -- 1. Tabla de Pacientes (Perfil de la Persona y Evaluación Inicial)
@@ -42,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Índices para optimizar búsquedas rápidas
+-- 3. Índices para búsquedas rápidas
 CREATE INDEX IF NOT EXISTS idx_patients_rut ON public.patients(rut);
 CREATE INDEX IF NOT EXISTS idx_patients_nombre ON public.patients(nombre);
 CREATE INDEX IF NOT EXISTS idx_sessions_paciente_id ON public.sessions(paciente_id);
@@ -52,18 +51,21 @@ CREATE INDEX IF NOT EXISTS idx_sessions_fecha ON public.sessions(fecha_hora DESC
 ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 
--- 5. Políticas de Acceso para Uso Personal
--- Permitir lectura, inserción, actualización y eliminación
-CREATE POLICY "Permitir todo en patients" ON public.patients
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
+-- 5. Eliminar políticas previas si existiesen
+DROP POLICY IF EXISTS "Permitir todo en patients" ON public.patients;
+DROP POLICY IF EXISTS "Permitir todo en sessions" ON public.sessions;
+DROP POLICY IF EXISTS "Acceso total pacientes para usuarios autenticados" ON public.patients;
+DROP POLICY IF EXISTS "Acceso total sesiones para usuarios autenticados" ON public.sessions;
 
-CREATE POLICY "Permitir todo en sessions" ON public.sessions
+-- 6. Políticas de Acceso para Terapeuta Autenticado (Seguro y sin advertencias)
+CREATE POLICY "Acceso total pacientes para usuarios autenticados" ON public.patients
     FOR ALL
-    USING (true)
-    WITH CHECK (true);
+    TO authenticated
+    USING (auth.role() = 'authenticated')
+    WITH CHECK (auth.role() = 'authenticated');
 
--- ==============================================================================
--- ¡Listo! Las tablas e índices han sido creados correctamente.
--- ==============================================================================
+CREATE POLICY "Acceso total sesiones para usuarios autenticados" ON public.sessions
+    FOR ALL
+    TO authenticated
+    USING (auth.role() = 'authenticated')
+    WITH CHECK (auth.role() = 'authenticated');
