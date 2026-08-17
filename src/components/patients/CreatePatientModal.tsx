@@ -31,7 +31,7 @@ export function CreatePatientModal({
     new Date().toISOString().split('T')[0]
   )
 
-  // Evaluación
+  // Evaluación Clínica Inicial
   const [motivoConsultaDetalle, setMotivoConsultaDetalle] = useState('')
   const [evaluacionInicial, setEvaluacionInicial] = useState('')
   const [instrumentosAplicados, setInstrumentosAplicados] = useState('')
@@ -55,26 +55,61 @@ export function CreatePatientModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!nombre.trim() || !rut.trim()) {
-      showToast({
-        title: 'Campos obligatorios',
-        description: 'El Nombre y RUT son obligatorios para crear el usuario.',
-        type: 'error'
-      })
+    // Validar campos obligatorios de Perfil de la Persona
+    if (!nombre.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el Nombre Completo.', type: 'error' })
+      return
+    }
+    if (!rut.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el RUT del paciente.', type: 'error' })
+      return
+    }
+    if (edad === '' || isNaN(Number(edad))) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa la Edad del paciente.', type: 'error' })
+      return
+    }
+    if (!telefono.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el N° de Teléfono de contacto.', type: 'error' })
+      return
+    }
+    if (!fechaIngreso) {
+      showToast({ title: 'Campo requerido', description: 'Por favor selecciona la Fecha de Ingreso.', type: 'error' })
+      return
+    }
+    if (!motivoConsulta.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el Motivo de Consulta General.', type: 'error' })
+      return
+    }
+
+    // Validar campos obligatorios de Evaluación Clínica Inicial
+    if (!motivoConsultaDetalle.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el Motivo de Consulta Detallado / Antecedentes.', type: 'error' })
+      return
+    }
+    if (!evaluacionInicial.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa la Evaluación Inicial (Observación Clínica).', type: 'error' })
+      return
+    }
+    if (!instrumentosAplicados.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor indica los Instrumentos Aplicados.', type: 'error' })
+      return
+    }
+    if (!resultados.trim()) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa los Resultados y Síntesis Evaluativa.', type: 'error' })
       return
     }
 
     const newPatient: Omit<Patient, 'id' | 'createdAt'> = {
       nombre: nombre.trim(),
       rut: rut.trim(),
-      edad: edad ? Number(edad) : '',
+      edad: Number(edad),
       telefono: telefono.trim(),
-      correo: correo.trim(),
-      cuidador: cuidador.trim(),
+      correo: correo.trim(), // Opcional
+      cuidador: cuidador.trim(), // Opcional
       motivoConsulta: motivoConsulta.trim(),
       fechaIngreso: fechaIngreso,
       evaluacion: {
-        motivoConsultaDetalle: motivoConsultaDetalle.trim() || motivoConsulta.trim(),
+        motivoConsultaDetalle: motivoConsultaDetalle.trim(),
         evaluacionInicial: evaluacionInicial.trim(),
         instrumentosAplicados: instrumentosAplicados.trim(),
         resultados: resultados.trim()
@@ -103,7 +138,7 @@ export function CreatePatientModal({
           <span>Registrar Nuevo Usuario / Paciente</span>
         </div>
       }
-      description="Completa el perfil general de la persona y la evaluación clínica inicial."
+      description="Completa el perfil de la persona y la evaluación clínica inicial. Los campos marcados con * son obligatorios."
       size="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -112,7 +147,7 @@ export function CreatePatientModal({
           <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
             <UserCheck className="w-4 h-4 text-lime-600" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-900">
-              Perfil de la Persona
+              1. Perfil de la Persona
             </h4>
           </div>
 
@@ -147,7 +182,7 @@ export function CreatePatientModal({
 
             {/* Edad */}
             <div className="space-y-1.5">
-              <Label htmlFor="edad">
+              <Label htmlFor="edad" required>
                 Edad (Años)
               </Label>
               <Input
@@ -158,12 +193,13 @@ export function CreatePatientModal({
                 placeholder="Ej. 7"
                 value={edad}
                 onChange={(e) => setEdad(e.target.value)}
+                required
               />
             </div>
 
             {/* N° Teléfono */}
             <div className="space-y-1.5">
-              <Label htmlFor="telefono">
+              <Label htmlFor="telefono" required>
                 N° Teléfono
               </Label>
               <Input
@@ -171,33 +207,7 @@ export function CreatePatientModal({
                 placeholder="Ej. +56 9 8456 1234"
                 value={telefono}
                 onChange={(e) => setTelefono(e.target.value)}
-              />
-            </div>
-
-            {/* Correo */}
-            <div className="space-y-1.5">
-              <Label htmlFor="correo">
-                Correo Electrónico
-              </Label>
-              <Input
-                id="correo"
-                type="email"
-                placeholder="Ej. contacto@ejemplo.cl"
-                value={correo}
-                onChange={(e) => setCorreo(e.target.value)}
-              />
-            </div>
-
-            {/* Cuidador/a */}
-            <div className="space-y-1.5">
-              <Label htmlFor="cuidador">
-                Cuidador/a (Nombre y parentesco)
-              </Label>
-              <Input
-                id="cuidador"
-                placeholder="Ej. Claudia Silva (Madre)"
-                value={cuidador}
-                onChange={(e) => setCuidador(e.target.value)}
+                required
               />
             </div>
 
@@ -215,9 +225,36 @@ export function CreatePatientModal({
               />
             </div>
 
+            {/* Correo (OPCIONAL) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="correo">
+                Correo Electrónico <span className="text-zinc-400 font-normal">(Opcional)</span>
+              </Label>
+              <Input
+                id="correo"
+                type="email"
+                placeholder="Ej. contacto@ejemplo.cl"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+              />
+            </div>
+
+            {/* Cuidador/a (OPCIONAL) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="cuidador">
+                Cuidador/a <span className="text-zinc-400 font-normal">(Opcional)</span>
+              </Label>
+              <Input
+                id="cuidador"
+                placeholder="Ej. Claudia Silva (Madre)"
+                value={cuidador}
+                onChange={(e) => setCuidador(e.target.value)}
+              />
+            </div>
+
             {/* Motivo de consulta */}
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="motivoConsulta">
+              <Label htmlFor="motivoConsulta" required>
                 Motivo de Consulta General
               </Label>
               <Input
@@ -225,24 +262,25 @@ export function CreatePatientModal({
                 placeholder="Ej. Dificultades en integración sensorial y motricidad fina"
                 value={motivoConsulta}
                 onChange={(e) => setMotivoConsulta(e.target.value)}
+                required
               />
             </div>
           </div>
         </div>
 
-        {/* SECCIÓN 2: EVALUACIÓN */}
+        {/* SECCIÓN 2: EVALUACIÓN (TODOS OBLIGATORIOS) */}
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
             <Stethoscope className="w-4 h-4 text-lime-600" />
             <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-900">
-              Evaluación Clínica Inicial
+              2. Evaluación Clínica Inicial (Obligatoria)
             </h4>
           </div>
 
           <div className="space-y-4">
             {/* Motivo de consulta detalle */}
             <div className="space-y-1.5">
-              <Label htmlFor="motivoConsultaDetalle">
+              <Label htmlFor="motivoConsultaDetalle" required>
                 Motivo de Consulta Detallado / Antecedentes
               </Label>
               <Textarea
@@ -251,12 +289,13 @@ export function CreatePatientModal({
                 value={motivoConsultaDetalle}
                 onChange={(e) => setMotivoConsultaDetalle(e.target.value)}
                 rows={2}
+                required
               />
             </div>
 
             {/* Evaluación inicial */}
             <div className="space-y-1.5">
-              <Label htmlFor="evaluacionInicial">
+              <Label htmlFor="evaluacionInicial" required>
                 Evaluación Inicial (Observación Clínica Ocupacional)
               </Label>
               <Textarea
@@ -265,12 +304,13 @@ export function CreatePatientModal({
                 value={evaluacionInicial}
                 onChange={(e) => setEvaluacionInicial(e.target.value)}
                 rows={3}
+                required
               />
             </div>
 
             {/* Instrumentos aplicados */}
             <div className="space-y-1.5">
-              <Label htmlFor="instrumentosAplicados">
+              <Label htmlFor="instrumentosAplicados" required>
                 Instrumentos Aplicados
               </Label>
               <Input
@@ -278,12 +318,13 @@ export function CreatePatientModal({
                 placeholder="Ej. Perfil Sensorial 2, VMI, PEDI, WeeFIM, FIM, Observaciones Clínicas..."
                 value={instrumentosAplicados}
                 onChange={(e) => setInstrumentosAplicados(e.target.value)}
+                required
               />
             </div>
 
             {/* Resultados */}
             <div className="space-y-1.5">
-              <Label htmlFor="resultados">
+              <Label htmlFor="resultados" required>
                 Resultados y Síntesis Evaluativa
               </Label>
               <Textarea
@@ -292,6 +333,7 @@ export function CreatePatientModal({
                 value={resultados}
                 onChange={(e) => setResultados(e.target.value)}
                 rows={3}
+                required
               />
             </div>
           </div>
@@ -309,7 +351,7 @@ export function CreatePatientModal({
           <Button
             type="submit"
             variant="lime"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 font-semibold shadow-sm"
           >
             <Save className="w-4 h-4" />
             Guardar Usuario

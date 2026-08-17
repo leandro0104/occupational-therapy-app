@@ -127,6 +127,46 @@ export function App() {
     }
   }, [])
 
+  // Auto-Logout por inactividad clínica (30 minutos)
+  useEffect(() => {
+    if (!user) return
+
+    const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutos
+    let timer: any
+
+    const handleInactivityLogout = async () => {
+      if (isSupabaseConfigured && supabase) {
+        await supabase.auth.signOut()
+      }
+      storageService.clearUser()
+      setUser(null)
+      showToast({
+        title: 'Sesión Cerrada por Inactividad',
+        description: 'Por seguridad de los datos de los pacientes, la sesión se cerró tras 30 minutos de inactividad.',
+        type: 'info'
+      })
+    }
+
+    const resetTimer = () => {
+      clearTimeout(timer)
+      timer = setTimeout(handleInactivityLogout, INACTIVITY_TIMEOUT_MS)
+    }
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach((event) =>
+      window.addEventListener(event, resetTimer, { passive: true })
+    )
+
+    resetTimer()
+
+    return () => {
+      clearTimeout(timer)
+      events.forEach((event) =>
+        window.removeEventListener(event, resetTimer)
+      )
+    }
+  }, [user])
+
   const refreshData = async () => {
     try {
       const [fetchedPatients, fetchedSessions] = await Promise.all([
