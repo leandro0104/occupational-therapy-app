@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { showToast } from '@/components/ui/toast'
+import { formatRut, validateEmail } from '@/lib/utils'
 import { Patient } from '@/types'
 
 interface CreatePatientModalProps {
@@ -23,7 +24,7 @@ export function CreatePatientModal({
   const [nombre, setNombre] = useState('')
   const [rut, setRut] = useState('')
   const [edad, setEdad] = useState<string | number>('')
-  const [telefono, setTelefono] = useState('')
+  const [phoneDigits, setPhoneDigits] = useState('') // 8 dígitos después de +56 9
   const [correo, setCorreo] = useState('')
   const [cuidador, setCuidador] = useState('')
   const [motivoConsulta, setMotivoConsulta] = useState('')
@@ -41,7 +42,7 @@ export function CreatePatientModal({
     setNombre('')
     setRut('')
     setEdad('')
-    setTelefono('')
+    setPhoneDigits('')
     setCorreo('')
     setCuidador('')
     setMotivoConsulta('')
@@ -52,24 +53,41 @@ export function CreatePatientModal({
     setResultados('')
   }
 
+  // Handler para formateo automático de RUT chileno (ej: 12.345.678-9)
+  const handleRutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatRut(e.target.value)
+    setRut(formatted)
+  }
+
+  // Handler para formateo de teléfono (8 dígitos con espacio ej: 8456 1234)
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 8)
+    if (raw.length > 4) {
+      setPhoneDigits(`${raw.slice(0, 4)} ${raw.slice(4)}`)
+    } else {
+      setPhoneDigits(raw)
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validar campos obligatorios de Perfil de la Persona
+    // 1. Validar campos obligatorios de Perfil de la Persona
     if (!nombre.trim()) {
       showToast({ title: 'Campo requerido', description: 'Por favor ingresa el Nombre Completo.', type: 'error' })
       return
     }
-    if (!rut.trim()) {
-      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el RUT del paciente.', type: 'error' })
+    if (!rut.trim() || rut.trim().length < 8) {
+      showToast({ title: 'RUT incompleto', description: 'Por favor ingresa un RUT válido con dígito verificador.', type: 'error' })
       return
     }
-    if (edad === '' || isNaN(Number(edad))) {
-      showToast({ title: 'Campo requerido', description: 'Por favor ingresa la Edad del paciente.', type: 'error' })
+    if (edad === '' || isNaN(Number(edad)) || Number(edad) < 0) {
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa una Edad válida en años.', type: 'error' })
       return
     }
-    if (!telefono.trim()) {
-      showToast({ title: 'Campo requerido', description: 'Por favor ingresa el N° de Teléfono de contacto.', type: 'error' })
+    const cleanPhone = phoneDigits.replace(/\D/g, '')
+    if (cleanPhone.length < 8) {
+      showToast({ title: 'Teléfono incompleto', description: 'Por favor ingresa los 8 dígitos del número de teléfono (+56 9 XXXX XXXX).', type: 'error' })
       return
     }
     if (!fechaIngreso) {
@@ -81,13 +99,23 @@ export function CreatePatientModal({
       return
     }
 
-    // Validar campos obligatorios de Evaluación Clínica Inicial
+    // 2. Validar correo si fue ingresado (es opcional)
+    if (correo.trim() && !validateEmail(correo)) {
+      showToast({
+        title: 'Correo inválido',
+        description: 'El correo ingresado no tiene un formato válido (ej: usuario@ejemplo.cl).',
+        type: 'error'
+      })
+      return
+    }
+
+    // 3. Validar campos obligatorios de Evaluación Clínica Inicial
     if (!motivoConsultaDetalle.trim()) {
       showToast({ title: 'Campo requerido', description: 'Por favor ingresa el Motivo de Consulta Detallado / Antecedentes.', type: 'error' })
       return
     }
     if (!evaluacionInicial.trim()) {
-      showToast({ title: 'Campo requerido', description: 'Por favor ingresa la Evaluación Inicial (Observación Clínica).', type: 'error' })
+      showToast({ title: 'Campo requerido', description: 'Por favor ingresa la Evaluación Inicial (Observación Clínica Ocupacional).', type: 'error' })
       return
     }
     if (!instrumentosAplicados.trim()) {
@@ -99,11 +127,13 @@ export function CreatePatientModal({
       return
     }
 
+    const fullPhoneNumber = `+56 9 ${phoneDigits.trim()}`
+
     const newPatient: Omit<Patient, 'id' | 'createdAt'> = {
       nombre: nombre.trim(),
       rut: rut.trim(),
       edad: Number(edad),
-      telefono: telefono.trim(),
+      telefono: fullPhoneNumber,
       correo: correo.trim(), // Opcional
       cuidador: cuidador.trim(), // Opcional
       motivoConsulta: motivoConsulta.trim(),
@@ -166,16 +196,17 @@ export function CreatePatientModal({
               />
             </div>
 
-            {/* Rut */}
+            {/* Rut con formateo automático */}
             <div className="space-y-1.5">
               <Label htmlFor="rut" required>
                 RUT
               </Label>
               <Input
                 id="rut"
-                placeholder="Ej. 22.451.890-K"
+                placeholder="Ej. 12.345.678-9"
                 value={rut}
-                onChange={(e) => setRut(e.target.value)}
+                onChange={handleRutChange}
+                maxLength={12}
                 required
               />
             </div>
@@ -197,18 +228,25 @@ export function CreatePatientModal({
               />
             </div>
 
-            {/* N° Teléfono */}
+            {/* N° Teléfono con prefijo fijo +56 9 */}
             <div className="space-y-1.5">
               <Label htmlFor="telefono" required>
                 N° Teléfono
               </Label>
-              <Input
-                id="telefono"
-                placeholder="Ej. +56 9 8456 1234"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                required
-              />
+              <div className="flex rounded-lg border border-zinc-200 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-lime-500 focus-within:border-lime-500 transition-colors">
+                <span className="inline-flex items-center px-3 bg-zinc-50 border-r border-zinc-200 text-zinc-700 text-xs font-bold select-none shrink-0">
+                  🇨🇱 +56 9
+                </span>
+                <input
+                  id="telefono"
+                  type="tel"
+                  placeholder="8456 1234"
+                  value={phoneDigits}
+                  onChange={handlePhoneChange}
+                  className="flex h-10 w-full bg-transparent px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none"
+                  required
+                />
+              </div>
             </div>
 
             {/* Fecha de ingreso */}
@@ -225,7 +263,7 @@ export function CreatePatientModal({
               />
             </div>
 
-            {/* Correo (OPCIONAL) */}
+            {/* Correo (OPCIONAL con validación) */}
             <div className="space-y-1.5">
               <Label htmlFor="correo">
                 Correo Electrónico <span className="text-zinc-400 font-normal">(Opcional)</span>
@@ -233,7 +271,7 @@ export function CreatePatientModal({
               <Input
                 id="correo"
                 type="email"
-                placeholder="Ej. contacto@ejemplo.cl"
+                placeholder="usuario@ejemplo.cl"
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
               />
@@ -252,7 +290,7 @@ export function CreatePatientModal({
               />
             </div>
 
-            {/* Motivo de consulta */}
+            {/* Motivo de consulta general */}
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="motivoConsulta" required>
                 Motivo de Consulta General

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Calendar,
   Clock,
@@ -15,7 +15,11 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  History
+  History,
+  Target,
+  CheckCircle2,
+  Clock3,
+  TrendingUp
 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -33,6 +37,10 @@ import {
 } from '@/types'
 import { storageService } from '@/services/storageService'
 
+interface ExtendedObjective extends InterventionObjective {
+  isFromPreviousSession?: boolean
+}
+
 interface AttentionSessionModalProps {
   isOpen: boolean
   onClose: () => void
@@ -48,11 +56,11 @@ export function AttentionSessionModal({
 }: AttentionSessionModalProps) {
   // Collapse toggles for patient info
   const [showFullProfile, setShowFullProfile] = useState(true)
-  const [activeTab, setActiveTab] = useState<'new_session' | 'history'>('new_session')
+  const [activeTab, setActiveTab] = useState<'new_session' | 'objectives_summary' | 'history'>('new_session')
 
   // Form State for Evolution Session
   const [fechaHora, setFechaHora] = useState('')
-  const [objetivos, setObjetivos] = useState<InterventionObjective[]>([])
+  const [objetivos, setObjetivos] = useState<ExtendedObjective[]>([])
   const [descripcionSesion, setDescripcionSesion] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -72,34 +80,81 @@ export function AttentionSessionModal({
     let isMounted = true
     if (patient && isOpen) {
       storageService.getSessionsByPatientId(patient.id).then((sessions) => {
-        if (isMounted) setPastSessions(sessions)
+        if (isMounted) {
+          setPastSessions(sessions)
+          initNewSessionWithPendingObjectives(sessions)
+        }
       })
-      initNewSession()
     }
     return () => {
       isMounted = false
     }
   }, [patient, isOpen])
 
-  const initNewSession = () => {
+  /**
+   * Inicializa una nueva atención cargando automáticamente los objetivos
+   * de sesiones anteriores que estén en estado distinto a "Logrado" (parcialmente_logrado, no_logrado, en_proceso).
+   */
+  const initNewSessionWithPendingObjectives = (sessionsList: SessionEvolution[]) => {
     setFechaHora(getCurrentLocalDateTime())
-    setObjetivos([
-      {
-        id: 'obj-' + Date.now() + '-1',
-        descripcion: '',
-        estado: 'en_proceso'
-      }
-    ])
     setDescripcionSesion('')
     setActiveTab('new_session')
+
+    if (sessionsList.length === 0) {
+      // Si es la primera sesión, inicializar con un objetivo vacío
+      setObjetivos([
+        {
+          id: 'obj-' + Date.now() + '-1',
+          descripcion: '',
+          estado: 'en_proceso',
+          isFromPreviousSession: false
+        }
+      ])
+      return
+    }
+
+    // Obtener los objetivos pendientes de la sesión más reciente (o acumulados no logrados)
+    const latestSession = sessionsList[0] // Las sesiones vienen ordenadas descendentemente por fecha
+    const pendingFromPrevious = (latestSession.objetivos || [])
+      .filter((obj) => obj.estado !== 'logrado' && obj.descripcion.trim() !== '')
+      .map((obj, idx) => ({
+        id: 'obj-' + Date.now() + '-' + (idx + 1),
+        descripcion: obj.descripcion,
+        estado: obj.estado,
+        isFromPreviousSession: true
+      }))
+
+    if (pendingFromPrevious.length > 0) {
+      setObjetivos(pendingFromPrevious)
+    } else {
+      // Si todos los anteriores estaban logrados, empezar con un nuevo objetivo limpio
+      setObjetivos([
+        {
+          id: 'obj-' + Date.now() + '-1',
+          descripcion: '',
+          estado: 'en_proceso',
+          isFromPreviousSession: false
+        }
+      ])
+    }
+  }
+
+  const handleManualResetNewSession = () => {
+    initNewSessionWithPendingObjectives(pastSessions)
+    showToast({
+      title: 'Nueva Atención Iniciada',
+      description: 'Formulario preparado para registrar una nueva sesión.',
+      type: 'info'
+    })
   }
 
   // Objectives handlers
   const handleAddObjective = () => {
-    const newObj: InterventionObjective = {
+    const newObj: ExtendedObjective = {
       id: 'obj-' + Date.now() + '-' + (objetivos.length + 1),
       descripcion: '',
-      estado: 'en_proceso'
+      estado: 'en_proceso',
+      isFromPreviousSession: false
     }
     setObjetivos([...objetivos, newObj])
   }
@@ -133,7 +188,7 @@ export function AttentionSessionModal({
     e.preventDefault()
     if (!patient) return
 
-    // Validate at least description or objectives
+    // Validar objetivos válidos con descripción
     const validObjectives = objetivos.filter((o) => o.descripcion.trim() !== '')
     if (validObjectives.length === 0 && !descripcionSesion.trim()) {
       showToast({
@@ -147,12 +202,17 @@ export function AttentionSessionModal({
     setIsSaving(true)
 
     try {
+      // Limpiar metadatos temporales de UI antes de guardar
+      const cleanObjectives: InterventionObjective[] = (
+        validObjectives.length > 0 ? validObjectives : objetivos
+      ).map(({ id, descripcion, estado }) => ({ id, descripcion, estado }))
+
       await storageService.addSession({
         pacienteId: patient.id,
         pacienteNombre: patient.nombre,
         pacienteRut: patient.rut,
         fechaHora: fechaHora || getCurrentLocalDateTime(),
-        objetivos: validObjectives.length > 0 ? validObjectives : objetivos,
+        objetivos: cleanObjectives,
         descripcionSesion: descripcionSesion.trim()
       })
 
@@ -163,7 +223,7 @@ export function AttentionSessionModal({
         type: 'success'
       })
 
-      // Refresh patient sessions
+      // Refrescar sesiones del paciente
       const updatedSessions = await storageService.getSessionsByPatientId(patient.id)
       setPastSessions(updatedSessions)
 
@@ -180,7 +240,57 @@ export function AttentionSessionModal({
     }
   }
 
+  // =========================================================================
+  // CÁLCULOS DE OBJETIVOS COMPLETADOS VS PENDIENTES DEL USUARIO
+  // =========================================================================
+  const { completedObjectives, pendingObjectives, achievementRate } = useMemo(() => {
+    const achievedMap = new Map<string, { descripcion: string; fechaLogro: string; sesionId: string }>()
+    const latestStatusMap = new Map<string, { descripcion: string; estado: ObjectiveStatus; ultimaFecha: string }>()
+
+    // Recorrer de más antigua a más nueva para ver la evolución
+    const chronologicalSessions = [...pastSessions].reverse()
+
+    chronologicalSessions.forEach((session) => {
+      (session.objetivos || []).forEach((obj) => {
+        const descKey = obj.descripcion.trim().toLowerCase()
+        if (!descKey) return
+
+        if (obj.estado === 'logrado') {
+          achievedMap.set(descKey, {
+            descripcion: obj.descripcion,
+            fechaLogro: session.fechaHora,
+            sesionId: session.id
+          })
+          // Si fue logrado, lo quitamos de pendientes
+          latestStatusMap.delete(descKey)
+        } else {
+          // Si no está logrado y no ha sido marcado logrado posteriormente
+          if (!achievedMap.has(descKey)) {
+            latestStatusMap.set(descKey, {
+              descripcion: obj.descripcion,
+              estado: obj.estado,
+              ultimaFecha: session.fechaHora
+            })
+          }
+        }
+      })
+    })
+
+    const completed = Array.from(achievedMap.values())
+    const pending = Array.from(latestStatusMap.values())
+    const total = completed.length + pending.length
+    const rate = total > 0 ? Math.round((completed.length / total) * 100) : 0
+
+    return {
+      completedObjectives: completed,
+      pendingObjectives: pending,
+      achievementRate: rate
+    }
+  }, [pastSessions])
+
   if (!patient) return null
+
+  const hasPendingFromPrevious = objetivos.some((o) => o.isFromPreviousSession)
 
   return (
     <Modal
@@ -210,23 +320,34 @@ export function AttentionSessionModal({
             </div>
           </div>
 
+          {/* Navigation Tabs */}
           <div className="flex items-center gap-2">
             <Button
               type="button"
               variant={activeTab === 'new_session' ? 'lime' : 'outline'}
               size="sm"
               onClick={() => setActiveTab('new_session')}
-              className="gap-1.5"
+              className="gap-1.5 text-xs font-semibold"
             >
               <Plus className="w-3.5 h-3.5" />
               Nueva Atención
             </Button>
             <Button
               type="button"
+              variant={activeTab === 'objectives_summary' ? 'lime' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('objectives_summary')}
+              className="gap-1.5 text-xs font-semibold"
+            >
+              <Target className="w-3.5 h-3.5" />
+              Detalle Objetivos ({completedObjectives.length + pendingObjectives.length})
+            </Button>
+            <Button
+              type="button"
               variant={activeTab === 'history' ? 'lime' : 'outline'}
               size="sm"
               onClick={() => setActiveTab('history')}
-              className="gap-1.5"
+              className="gap-1.5 text-xs font-semibold"
             >
               <History className="w-3.5 h-3.5" />
               Historial ({pastSessions.length})
@@ -239,7 +360,7 @@ export function AttentionSessionModal({
         {/* ========================================================================= */}
         {/* APARTADO SUPERIOR: DATOS REGISTRADOS DEL PACIENTE (PERFIL + EVALUACIÓN)  */}
         {/* ========================================================================= */}
-        <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-xs overflow-hidden transition-all duration-200">
+        <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-2xs overflow-hidden transition-all duration-200">
           <div
             onClick={() => setShowFullProfile(!showFullProfile)}
             className="px-5 py-3.5 bg-zinc-100/70 border-b border-zinc-200/80 flex items-center justify-between cursor-pointer hover:bg-zinc-100 transition-colors"
@@ -304,14 +425,14 @@ export function AttentionSessionModal({
                     <span className="text-zinc-400 block font-medium">Correo:</span>
                     <span className="font-semibold text-zinc-900 flex items-center gap-1 truncate">
                       <Mail className="w-3 h-3 text-zinc-400 shrink-0" />
-                      {patient.correo || '-'}
+                      {patient.correo || <span className="text-zinc-400 italic">No registrado</span>}
                     </span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-zinc-400 block font-medium">Cuidador/a:</span>
                     <span className="font-semibold text-zinc-900 flex items-center gap-1">
                       <HeartHandshake className="w-3.5 h-3.5 text-lime-600" />
-                      {patient.cuidador || 'No especificado'}
+                      {patient.cuidador || <span className="text-zinc-400 italic">No registrado</span>}
                     </span>
                   </div>
                   <div className="col-span-2 bg-white p-2 rounded-lg border border-zinc-200">
@@ -338,7 +459,7 @@ export function AttentionSessionModal({
                   {patient.evaluacion?.motivoConsultaDetalle && (
                     <div>
                       <span className="text-zinc-400 block font-medium">
-                        Motivo de Consulta Detallado:
+                        Motivo de Consulta Detallado / Antecedentes:
                       </span>
                       <p className="text-zinc-800 bg-white p-2 rounded-lg border border-zinc-200 mt-0.5 leading-relaxed">
                         {patient.evaluacion.motivoConsultaDetalle}
@@ -348,7 +469,7 @@ export function AttentionSessionModal({
 
                   <div>
                     <span className="text-zinc-400 block font-medium">
-                      Evaluación Inicial (Observación Ocupacional):
+                      Evaluación Inicial (Observación Clínica Ocupacional):
                     </span>
                     <p className="text-zinc-800 bg-white p-2 rounded-lg border border-zinc-200 mt-0.5 leading-relaxed">
                       {patient.evaluacion?.evaluacionInicial || 'No se registraron observaciones iniciales.'}
@@ -379,10 +500,10 @@ export function AttentionSessionModal({
         </div>
 
         {/* ========================================================================= */}
-        {/* TABS BODY: NUEVA ATENCIÓN / EVOLUCIÓN VS HISTORIAL                        */}
+        {/* TAB 1: REGISTRO DE NUEVA ATENCIÓN / EVOLUCIÓN                             */}
         {/* ========================================================================= */}
-        {activeTab === 'new_session' ? (
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 space-y-6">
+        {activeTab === 'new_session' && (
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 space-y-6 animate-in fade-in duration-150">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-200">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-lime-100 text-lime-800 flex items-center justify-center">
@@ -393,7 +514,7 @@ export function AttentionSessionModal({
                     Registro de Evolución de Sesión
                   </h3>
                   <p className="text-xs text-zinc-500">
-                    Ingresa los objetivos abordados en la sesión y su nivel de logro alcanzado.
+                    Registra la sesión actual. Los objetivos no completados de sesiones previas se han cargado automáticamente.
                   </p>
                 </div>
               </div>
@@ -402,12 +523,23 @@ export function AttentionSessionModal({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={initNewSession}
-                className="text-xs"
+                onClick={handleManualResetNewSession}
+                className="text-xs gap-1.5"
               >
-                + Nueva Atención (Limpiar formulario)
+                <Plus className="w-3.5 h-3.5" />
+                + Nueva Atención (Recargar)
               </Button>
             </div>
+
+            {/* Aviso si se cargaron objetivos previos */}
+            {hasPendingFromPrevious && (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/80 border border-amber-200/90 text-amber-900 text-xs leading-relaxed">
+                <Clock3 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Objetivos de sesiones anteriores cargados:</span> Se desplegaron los objetivos que se encontraban en estado pendiente (*Parcialmente logrado*, *No logrado* o *En proceso*) para continuar su seguimiento. Al alcanzarlos, márcalos como <strong>Logrado</strong> para darlos por completados.
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSaveEvolution} className="space-y-6">
               {/* Fecha / Hora */}
@@ -428,7 +560,7 @@ export function AttentionSessionModal({
                 </div>
               </div>
 
-              {/* Objetivos de Intervención (Dinámicos) */}
+              {/* Objetivos de Intervención (Dinámicos y continuos) */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -455,9 +587,16 @@ export function AttentionSessionModal({
                       key={obj.id}
                       className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-white rounded-xl border border-zinc-200 shadow-2xs animate-in fade-in duration-150"
                     >
-                      <span className="w-6 h-6 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center text-xs font-bold shrink-0">
-                        {index + 1}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="w-6 h-6 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center text-xs font-bold">
+                          {index + 1}
+                        </span>
+                        {obj.isFromPreviousSession && (
+                          <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200">
+                            En seguimiento
+                          </span>
+                        )}
+                      </div>
 
                       {/* Objective Description */}
                       <div className="flex-1 w-full">
@@ -481,7 +620,7 @@ export function AttentionSessionModal({
                               e.target.value as ObjectiveStatus
                             )
                           }
-                          className="h-9 px-3 py-1 text-xs font-semibold rounded-lg border border-zinc-300 bg-white text-zinc-800 focus:outline-none focus:ring-2 focus:ring-lime-500"
+                          className="h-9 px-3 py-1 text-xs font-semibold rounded-lg border border-zinc-300 bg-white text-zinc-800 focus:outline-none focus:ring-2 focus:ring-lime-500 cursor-pointer"
                         >
                           <option value="logrado">✓ Logrado</option>
                           <option value="parcialmente_logrado">
@@ -544,11 +683,177 @@ export function AttentionSessionModal({
               </div>
             </form>
           </div>
-        ) : (
-          /* ========================================================================= */
-          /* HISTORIAL DE SESIONES PREVIAS DEL PACIENTE                                */
-          /* ========================================================================= */
-          <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: DETALLE DE OBJETIVOS COMPLETADOS Y EN SEGUIMIENTO DEL PACIENTE       */}
+        {/* ========================================================================= */}
+        {activeTab === 'objectives_summary' && (
+          <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-6 animate-in fade-in duration-150">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-lime-100 text-lime-800 flex items-center justify-center">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900">
+                    Plan de Objetivos Terapéuticos · {patient.nombre}
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Seguimiento detallado de metas alcanzadas y objetivos en proceso de intervención.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="lime"
+                  size="sm"
+                  onClick={() => setActiveTab('new_session')}
+                  className="gap-1.5 text-xs font-semibold"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Evaluar en Nueva Atención
+                </Button>
+              </div>
+            </div>
+
+            {/* Métricas de Logro del Paciente */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider block">
+                  Total Objetivos
+                </span>
+                <p className="text-2xl font-extrabold text-zinc-900 mt-1">
+                  {completedObjectives.length + pendingObjectives.length}
+                </p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Planteados a lo largo del tratamiento</p>
+              </div>
+
+              <div className="bg-lime-50/70 p-4 rounded-xl border border-lime-200">
+                <span className="text-xs font-bold text-lime-800 uppercase tracking-wider block">
+                  Objetivos Logrados
+                </span>
+                <p className="text-2xl font-extrabold text-lime-700 mt-1">
+                  {completedObjectives.length}
+                </p>
+                <p className="text-[11px] text-lime-700/80 mt-0.5">Completados y finalizados</p>
+              </div>
+
+              <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200">
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
+                  En Seguimiento Activo
+                </span>
+                <p className="text-2xl font-extrabold text-amber-700 mt-1">
+                  {pendingObjectives.length}
+                </p>
+                <p className="text-[11px] text-amber-700/80 mt-0.5">Pendientes de consolidación</p>
+              </div>
+            </div>
+
+            {/* Barra de progreso de objetivos */}
+            <div className="space-y-1.5 bg-zinc-50 p-4 rounded-xl border border-zinc-200">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-zinc-700 flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-lime-600" />
+                  Progreso Terapéutico Global
+                </span>
+                <span className="font-bold text-lime-800">{achievementRate}% de Logro</span>
+              </div>
+              <div className="w-full bg-zinc-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-lime-600 h-2.5 rounded-full transition-all duration-500"
+                  style={{ width: `${achievementRate}%` }}
+                />
+              </div>
+            </div>
+
+            {/* 1. SECCIÓN: OBJETIVOS COMPLETADOS / LOGRADOS */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
+                <CheckCircle2 className="w-4 h-4 text-lime-600" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900">
+                  1. Objetivos Completados / Logrados ({completedObjectives.length})
+                </h4>
+              </div>
+
+              {completedObjectives.length === 0 ? (
+                <div className="p-4 rounded-xl bg-zinc-50 border border-dashed border-zinc-200 text-center text-xs text-zinc-400">
+                  Aún no hay objetivos marcados como Logrado para este paciente.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {completedObjectives.map((obj, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-lime-50/40 border border-lime-200/80"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-lime-600 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                          ✓
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-900">{obj.descripcion}</p>
+                          <span className="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3 text-zinc-400" />
+                            Logrado en sesión del {formatDateTime(obj.fechaLogro)}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="status" status="logrado" className="shrink-0 self-start sm:self-auto" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. SECCIÓN: OBJETIVOS EN SEGUIMIENTO ACTIVO / PENDIENTES */}
+            <div className="space-y-3 pt-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
+                <Clock3 className="w-4 h-4 text-amber-600" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900">
+                  2. Objetivos en Seguimiento Activo ({pendingObjectives.length})
+                </h4>
+              </div>
+
+              {pendingObjectives.length === 0 ? (
+                <div className="p-4 rounded-xl bg-zinc-50 border border-dashed border-zinc-200 text-center text-xs text-zinc-400">
+                  No hay objetivos pendientes. Todos los objetivos han sido completados o no se han ingresado aún.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {pendingObjectives.map((obj, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/90"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-900">{obj.descripcion}</p>
+                          <span className="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3 text-zinc-400" />
+                            Última evaluación: {formatDateTime(obj.ultimaFecha)}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="status" status={obj.estado} className="shrink-0 self-start sm:self-auto" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 3: HISTORIAL DE SESIONES PREVIAS DEL PACIENTE                          */}
+        {/* ========================================================================= */}
+        {activeTab === 'history' && (
+          <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4 animate-in fade-in duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-lime-700" />
@@ -561,7 +866,7 @@ export function AttentionSessionModal({
                 variant="lime"
                 size="sm"
                 onClick={() => setActiveTab('new_session')}
-                className="gap-1.5"
+                className="gap-1.5 text-xs font-semibold"
               >
                 <Plus className="w-3.5 h-3.5" />
                 + Nueva Atención
@@ -607,7 +912,7 @@ export function AttentionSessionModal({
                     {session.objetivos && session.objetivos.length > 0 && (
                       <div className="space-y-1.5">
                         <span className="text-xs font-semibold text-zinc-600 block">
-                          Objetivos Abordados:
+                          Objetivos Abordados en esta Sesión:
                         </span>
                         <div className="space-y-1">
                           {session.objetivos.map((obj) => (
@@ -631,7 +936,7 @@ export function AttentionSessionModal({
                         <span className="font-semibold text-zinc-900 block mb-1">
                           Descripción Clínica:
                         </span>
-                        {session.descripcionSesion}
+                        <p className="whitespace-pre-line">{session.descripcionSesion}</p>
                       </div>
                     )}
                   </div>
