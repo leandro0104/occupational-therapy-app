@@ -16,6 +16,7 @@ import { Patient } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/utils'
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 
 interface PatientTableProps {
   patients: Patient[]
@@ -34,6 +35,9 @@ export function PatientTable({
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
+
+  // Estado para modal de confirmación de eliminación con palabra clave
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null)
 
   // Filter patients by Nombre, Rut, or Correo
   const filteredPatients = useMemo(() => {
@@ -73,6 +77,13 @@ export function PatientTable({
     }
   }
 
+  const handleConfirmDelete = () => {
+    if (patientToDelete) {
+      onDeletePatient(patientToDelete.id)
+      setPatientToDelete(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Controls & Title Bar (Based on Image 2) */}
@@ -86,7 +97,7 @@ export function PatientTable({
           </p>
         </div>
 
-        {/* Action Button (replaces 'Save Preferences' in Image 2) */}
+        {/* Action Button */}
         <div className="flex items-center gap-3">
           <Button
             onClick={onOpenCreateModal}
@@ -271,15 +282,11 @@ export function PatientTable({
                             <span>Atención</span>
                           </button>
 
-                          {/* Eliminar */}
+                          {/* Eliminar con confirmación de seguridad */}
                           <button
-                            onClick={() => {
-                              if (confirm(`¿Estás seguro de eliminar a ${patient.nombre}?`)) {
-                                onDeletePatient(patient.id)
-                              }
-                            }}
+                            onClick={() => setPatientToDelete(patient)}
                             className="p-1.5 rounded-md text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="Eliminar usuario"
+                            title="Eliminar usuario definitivamente"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -293,7 +300,7 @@ export function PatientTable({
           </table>
         </div>
 
-        {/* Table Footer / Pagination (Based on Image 2 footer) */}
+        {/* Table Footer / Pagination */}
         <div className="px-6 py-4 border-t border-zinc-200/90 bg-zinc-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-600">
           <div>
             {selectedRows.length} de {filteredPatients.length} fila(s) seleccionada(s).
@@ -353,6 +360,20 @@ export function PatientTable({
           </div>
         </div>
       </div>
+
+      {/* Modal de confirmación estricta para eliminar paciente */}
+      <DeleteConfirmModal
+        isOpen={patientToDelete !== null}
+        onClose={() => setPatientToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="¿Eliminar Paciente y su Ficha?"
+        description={
+          <span>
+            Esta acción es irreversible y eliminará permanentemente la ficha clínica de <strong>{patientToDelete?.nombre}</strong> (RUT: {patientToDelete?.rut}), junto con todas sus evaluaciones y sesiones de atención registradas.
+          </span>
+        }
+        confirmationWord="ELIMINAR"
+      />
     </div>
   )
 }

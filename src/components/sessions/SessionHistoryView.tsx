@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatDateTime } from '@/lib/utils'
 import { storageService } from '@/services/storageService'
 import { showToast } from '@/components/ui/toast'
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 
 interface SessionHistoryViewProps {
   sessions: SessionEvolution[]
@@ -32,6 +33,10 @@ export function SessionHistoryView({
 }: SessionHistoryViewProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  // Estado para modal de confirmación estricta al eliminar atención
+  const [sessionToDelete, setSessionToDelete] = useState<SessionEvolution | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Metrics calculation
   const totalObjectives = useMemo(() => {
@@ -69,15 +74,26 @@ export function SessionHistoryView({
     })
   }, [sessions, searchTerm, statusFilter])
 
-  const handleDeleteSession = async (sessionId: string) => {
-    if (confirm('¿Estás seguro de eliminar este registro de atención?')) {
-      await storageService.deleteSession(sessionId)
+  const handleConfirmDeleteSession = async () => {
+    if (!sessionToDelete) return
+    setIsDeleting(true)
+    try {
+      await storageService.deleteSession(sessionToDelete.id)
       showToast({
         title: 'Atención Eliminada',
-        description: 'El registro ha sido eliminado del historial.',
+        description: `El registro de atención de ${sessionToDelete.pacienteNombre} ha sido eliminado.`,
         type: 'info'
       })
+      setSessionToDelete(null)
       onRefresh()
+    } catch (err) {
+      showToast({
+        title: 'Error al eliminar',
+        description: 'No se pudo eliminar el registro de atención.',
+        type: 'error'
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -239,16 +255,16 @@ export function SessionHistoryView({
                         variant="outline"
                         size="sm"
                         onClick={() => onOpenPatientAttention(patient)}
-                        className="gap-1.5 text-xs text-lime-800 hover:text-lime-900 hover:bg-lime-50 border-lime-200"
+                        className="gap-1.5 text-xs text-lime-800 hover:text-lime-900 hover:bg-lime-50 border-lime-200 font-semibold"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         Ver Ficha Completa
                       </Button>
                     )}
                     <button
-                      onClick={() => handleDeleteSession(session.id)}
+                      onClick={() => setSessionToDelete(session)}
                       className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar atención"
+                      title="Eliminar atención definitivamente"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -295,6 +311,21 @@ export function SessionHistoryView({
           })
         )}
       </div>
+
+      {/* Modal de confirmación estricta para eliminar atención */}
+      <DeleteConfirmModal
+        isOpen={sessionToDelete !== null}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={handleConfirmDeleteSession}
+        isLoading={isDeleting}
+        title="¿Eliminar Atención de Sesión?"
+        description={
+          <span>
+            Esta acción eliminará el registro de la atención del <strong>{sessionToDelete ? formatDateTime(sessionToDelete.fechaHora) : ''}</strong> de <strong>{sessionToDelete?.pacienteNombre}</strong>.
+          </span>
+        }
+        confirmationWord="ELIMINAR"
+      />
     </div>
   )
 }
