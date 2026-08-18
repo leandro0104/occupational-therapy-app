@@ -223,8 +223,8 @@ export function PatientTable({
 
                       {/* Edad */}
                       <td className="py-3.5 px-3 text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-800 text-xs font-semibold">
-                          {patient.edad ? `${patient.edad} a` : '-'}
+                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-800 text-xs font-bold">
+                          {patient.edad !== undefined && patient.edad !== '' ? patient.edad : '-'}
                         </span>
                       </td>
 
