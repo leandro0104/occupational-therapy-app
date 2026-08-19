@@ -399,6 +399,7 @@ export function App() {
             onOpenCreateModal={() => setIsCreateModalOpen(true)}
             onOpenAttentionModal={handleOpenAttentionModal}
             onDeletePatient={handleDeletePatient}
+            onUpdatePatient={handlePatientUpdated}
           />
         ) : (
           <SessionHistoryView

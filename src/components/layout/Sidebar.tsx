@@ -141,11 +141,12 @@ export function Sidebar({
         <div className="p-4 border-t border-zinc-100 bg-zinc-50/50">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-lime-200 border-2 border-lime-400 flex items-center justify-center text-lime-900 font-bold text-sm shrink-0 overflow-hidden shadow-xs">
+              <div className="w-11 h-11 rounded-full bg-lime-200 border-2 border-lime-400 flex items-center justify-center text-lime-900 font-bold text-sm shrink-0 overflow-hidden shadow-xs relative">
                 <img
                   src={user?.avatarUrl || '/avatar_fabiola.jpg'}
                   alt={user?.nombre || 'Fabiola Alarcón'}
-                  className="w-full h-full object-cover object-top"
+                  className="w-full h-full object-cover scale-[1.38]"
+                  style={{ objectPosition: 'center 35%' }}
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none'
                   }}

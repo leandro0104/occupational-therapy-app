@@ -10,26 +10,31 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  FilterX
+  FilterX,
+  Edit3
 } from 'lucide-react'
 import { Patient } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/utils'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
+import { EditPatientModal } from '@/components/patients/EditPatientModal'
+import { storageService } from '@/services/storageService'
 
 interface PatientTableProps {
   patients: Patient[]
   onOpenCreateModal: () => void
   onOpenAttentionModal: (patient: Patient) => void
   onDeletePatient: (patientId: string) => void
+  onUpdatePatient?: (patient: Patient) => void
 }
 
 export function PatientTable({
   patients,
   onOpenCreateModal,
   onOpenAttentionModal,
-  onDeletePatient
+  onDeletePatient,
+  onUpdatePatient
 }: PatientTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRows, setSelectedRows] = useState<string[]>([])
@@ -38,6 +43,9 @@ export function PatientTable({
 
   // Estado para modal de confirmación de eliminación con palabra clave
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null)
+  
+  // Estado para modal de edición de ficha
+  const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null)
 
   // Filter patients by Nombre, Rut, or Correo
   const filteredPatients = useMemo(() => {
@@ -86,7 +94,7 @@ export function PatientTable({
 
   return (
     <div className="space-y-6">
-      {/* Top Controls & Title Bar (Based on Image 2) */}
+      {/* Top Controls & Title Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 font-sans">
@@ -141,7 +149,7 @@ export function PatientTable({
         </div>
       </div>
 
-      {/* Patients Table (Based on Image 2 layout) */}
+      {/* Patients Table */}
       <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -166,7 +174,7 @@ export function PatientTable({
                 <th className="py-3.5 px-3">Cuidador/a</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Motivo de Consulta</th>
                 <th className="py-3.5 px-3">Fecha Ingreso</th>
-                <th className="py-3.5 pr-4 pl-3 text-right">Atención</th>
+                <th className="py-3.5 pr-4 pl-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 text-sm">
@@ -269,10 +277,10 @@ export function PatientTable({
                         {formatDate(patient.fechaIngreso)}
                       </td>
 
-                      {/* Acciones: Registrar Atención Icon / Button */}
+                      {/* Acciones: Atención, Editar Ficha y Eliminar */}
                       <td className="py-3.5 pr-4 pl-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Botón principal para abrir el Modal Grande de Atención */}
+                          {/* Botón Atención */}
                           <button
                             onClick={() => onOpenAttentionModal(patient)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-lime-100 hover:bg-lime-200 text-lime-900 text-xs font-bold transition-all shadow-2xs active:scale-95"
@@ -282,7 +290,16 @@ export function PatientTable({
                             <span>Atención</span>
                           </button>
 
-                          {/* Eliminar con confirmación de seguridad */}
+                          {/* Botón Editar Ficha */}
+                          <button
+                            onClick={() => setPatientToEdit(patient)}
+                            className="p-1.5 rounded-md text-zinc-400 hover:text-lime-700 hover:bg-lime-50 transition-colors"
+                            title="Editar ficha del usuario"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Botón Eliminar */}
                           <button
                             onClick={() => setPatientToDelete(patient)}
                             className="p-1.5 rounded-md text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors"
@@ -373,6 +390,20 @@ export function PatientTable({
           </span>
         }
         confirmationWord="ELIMINAR"
+      />
+
+      {/* Modal para Editar Ficha Clínica del Paciente */}
+      <EditPatientModal
+        isOpen={patientToEdit !== null}
+        onClose={() => setPatientToEdit(null)}
+        patient={patientToEdit}
+        onSave={async (updated) => {
+          await storageService.updatePatient(updated)
+          if (onUpdatePatient) {
+            onUpdatePatient(updated)
+          }
+          setPatientToEdit(null)
+        }}
       />
     </div>
   )
