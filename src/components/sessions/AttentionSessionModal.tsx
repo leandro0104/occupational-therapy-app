@@ -108,6 +108,44 @@ export function AttentionSessionModal({
   }, [patient, isOpen])
 
   /**
+   * Helper para filtrar sesiones que pertenecen al ciclo del Objetivo General actual.
+   * Prioriza la vinculación directa por objetivoGeneralTexto y cuenta con tolerancia horaria.
+   */
+  const getCurrentCycleSessions = (sessionsList: SessionEvolution[], currentPatient: Patient | null) => {
+    if (!currentPatient) return sessionsList
+
+    const activeGenObj = (currentPatient.objetivoGeneral || '').trim().toLowerCase()
+    if (!activeGenObj) return []
+
+    // 1. Si hay sesiones con el texto del Objetivo General grabado explícitamente
+    const matchedSessions = sessionsList.filter((s) => {
+      const sessGenObj = (s.objetivoGeneralTexto || '').trim().toLowerCase()
+      return sessGenObj === activeGenObj
+    })
+
+    if (matchedSessions.length > 0) {
+      return matchedSessions
+    }
+
+    // 2. Si las sesiones aún no tienen objetivoGeneralTexto (compatibilidad con sesiones previas)
+    const historyList = currentPatient.objetivosGeneralesHistorial || []
+    const latestCompletedHistory = historyList.length > 0 ? historyList[0] : null
+    const latestCompletedTime = latestCompletedHistory?.fechaCompletado
+      ? new Date(latestCompletedHistory.fechaCompletado).getTime()
+      : 0
+
+    if (latestCompletedTime > 0) {
+      // 24 horas de margen para evitar fallos por huso horario
+      const tolerance = 24 * 60 * 60 * 1000
+      return sessionsList.filter(
+        (s) => new Date(s.fechaHora).getTime() >= latestCompletedTime - tolerance
+      )
+    }
+
+    return sessionsList
+  }
+
+  /**
    * Inicializa una nueva atención cargando automáticamente los objetivos
    * de sesiones anteriores que estén en estado distinto a "Logrado".
    */
@@ -116,18 +154,7 @@ export function AttentionSessionModal({
     setDescripcionSesion('')
     setActiveTab('new_session')
 
-    // Determinar el ciclo actual del objetivo general
-    const historyList = patient?.objetivosGeneralesHistorial || []
-    const latestCompletedTime =
-      historyList.length > 0 && historyList[0]?.fechaCompletado
-        ? new Date(historyList[0].fechaCompletado).getTime()
-        : 0
-
-    const currentCycleSessions = latestCompletedTime > 0
-      ? sessionsList.filter(
-          (s) => new Date(s.fechaHora).getTime() >= latestCompletedTime
-        )
-      : sessionsList
+    const currentCycleSessions = getCurrentCycleSessions(sessionsList, patient)
 
     if (currentCycleSessions.length === 0) {
       setObjetivos([
@@ -285,6 +312,7 @@ export function AttentionSessionModal({
         pacienteNombre: patient.nombre,
         pacienteRut: patient.rut,
         fechaHora: fechaHora || getCurrentLocalDateTime(),
+        objetivoGeneralTexto: patient.objetivoGeneral || '',
         objetivos: cleanObjectives,
         descripcionSesion: descripcionSesion.trim()
       })
@@ -321,20 +349,7 @@ export function AttentionSessionModal({
     const achievedMap = new Map<string, { descripcion: string; fechaLogro: string; sesionId: string }>()
     const latestStatusMap = new Map<string, { descripcion: string; estado: ObjectiveStatus; ultimaFecha: string }>()
 
-    // Obtener la fecha del último objetivo general completado (si existe)
-    const historyList = patient?.objetivosGeneralesHistorial || []
-    const latestCompletedHistory = historyList.length > 0 ? historyList[0] : null
-    const latestCompletedTime = latestCompletedHistory?.fechaCompletado
-      ? new Date(latestCompletedHistory.fechaCompletado).getTime()
-      : 0
-
-    // Filtrar sesiones que pertenezcan ÚNICAMENTE al ciclo del Objetivo General actual
-    const currentCycleSessions = latestCompletedTime > 0
-      ? pastSessions.filter(
-          (s) => new Date(s.fechaHora).getTime() >= latestCompletedTime
-        )
-      : pastSessions
-
+    const currentCycleSessions = getCurrentCycleSessions(pastSessions, patient)
     const chronologicalSessions = [...currentCycleSessions].reverse()
 
     chronologicalSessions.forEach((session) => {
@@ -371,7 +386,7 @@ export function AttentionSessionModal({
       pendingObjectives: pending,
       achievementRate: rate
     }
-  }, [pastSessions, patient?.objetivosGeneralesHistorial])
+  }, [pastSessions, patient?.objetivoGeneral, patient?.objetivosGeneralesHistorial])
 
   // =========================================================================
   // MANEJO DE COMPLETAR Y CREAR OBJETIVO GENERAL (OBJETIVO PADRE)
@@ -1349,6 +1364,17 @@ export function AttentionSessionModal({
                           ID: {session.id}
                         </span>
                       </div>
+
+                      {/* Objetivo General Asociado */}
+                      {session.objetivoGeneralTexto ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-lime-50/90 border border-lime-200 text-xs">
+                          <Target className="w-3.5 h-3.5 text-lime-700 shrink-0" />
+                          <span className="font-bold text-lime-950">Objetivo General Asociado:</span>
+                          <span className="text-zinc-800 font-medium italic truncate">
+                            "{session.objetivoGeneralTexto}"
+                          </span>
+                        </div>
+                      ) : null}
 
                       {/* Objetivos abordados */}
                       {session.objetivos && session.objetivos.length > 0 && (

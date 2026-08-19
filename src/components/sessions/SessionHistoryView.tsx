@@ -271,6 +271,15 @@ export function SessionHistoryView({
                   </div>
                 </div>
 
+                {/* Objetivo General Asociado */}
+                {session.objetivoGeneralTexto ? (
+                  <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-lime-50/90 border border-lime-200/90 text-xs">
+                    <Target className="w-4 h-4 text-lime-700 shrink-0" />
+                    <span className="font-bold text-lime-950">Objetivo General Asociado:</span>
+                    <span className="text-zinc-800 font-medium italic">"{session.objetivoGeneralTexto}"</span>
+                  </div>
+                ) : null}
+
                 {/* Objetivos de la sesión */}
                 {session.objetivos && session.objetivos.length > 0 && (
                   <div className="space-y-2">

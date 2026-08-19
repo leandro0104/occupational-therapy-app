@@ -56,6 +56,7 @@ export interface SessionEvolution {
   pacienteNombre: string
   pacienteRut: string
   fechaHora: string // ISO date string
+  objetivoGeneralTexto?: string // Objetivo general asociado
   objetivos: InterventionObjective[]
   descripcionSesion: string
   createdAt: string

@@ -102,6 +102,7 @@ interface DbSessionRow {
   paciente_nombre: string
   paciente_rut: string
   fecha_hora: string
+  objetivo_general_texto?: string | null
   objetivos: any
   descripcion_sesion: string
   created_at: string
@@ -140,6 +141,7 @@ function mapDbToSession(row: DbSessionRow): SessionEvolution {
     pacienteNombre: row.paciente_nombre,
     pacienteRut: row.paciente_rut,
     fechaHora: row.fecha_hora,
+    objetivoGeneralTexto: row.objetivo_general_texto ?? '',
     objetivos: Array.isArray(row.objetivos) ? row.objetivos : [],
     descripcionSesion: row.descripcion_sesion ?? '',
     createdAt: row.created_at
@@ -364,6 +366,7 @@ export const storageService = {
             paciente_nombre: sessionData.pacienteNombre,
             paciente_rut: sessionData.pacienteRut,
             fecha_hora: sessionData.fechaHora,
+            objetivo_general_texto: sessionData.objetivoGeneralTexto || null,
             objetivos: sessionData.objetivos,
             descripcion_sesion: sessionData.descripcionSesion
           })

@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     paciente_nombre VARCHAR(100),
     paciente_rut VARCHAR(12),
     fecha_hora TIMESTAMPTZ DEFAULT NOW(),
+    objetivo_general_texto VARCHAR(300),
     
     -- Objetivos de intervención dinámicos guardados en formato JSONB
     -- Estructura: [{"id": "obj-1", "descripcion": "...", "estado": "logrado"}]
@@ -51,6 +52,9 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     descripcion_sesion VARCHAR(3000),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Si la tabla sessions ya existe, agregar la columna objetivo_general_texto si falta:
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS objetivo_general_texto VARCHAR(300);
 
 -- 3. Índices para búsquedas rápidas
 CREATE INDEX IF NOT EXISTS idx_patients_rut ON public.patients(rut);
