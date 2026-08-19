@@ -23,6 +23,8 @@ import {
   Award,
   Lock,
   Edit3,
+  Edit2,
+  Check,
   RotateCw
 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
@@ -42,6 +44,7 @@ import {
 } from '@/types'
 import { storageService } from '@/services/storageService'
 import { EditPatientModal } from '@/components/patients/EditPatientModal'
+import { CompleteGoalConfirmModal } from '@/components/ui/CompleteGoalConfirmModal'
 
 interface ExtendedObjective extends InterventionObjective {
   isFromPreviousSession?: boolean
@@ -79,6 +82,16 @@ export function AttentionSessionModal({
   const [isCreatingNewGenObj, setIsCreatingNewGenObj] = useState(false)
   const [newGenObjText, setNewGenObjText] = useState('')
   const [isSavingGenObj, setIsSavingGenObj] = useState(false)
+
+  // Modal para confirmar Completar Objetivo General con palabra clave CONFIRMAR
+  const [isConfirmCompleteOpen, setIsConfirmCompleteOpen] = useState(false)
+
+  // Estado para editar nombres de objetivos en seguimiento
+  const [editingObjectiveIds, setEditingObjectiveIds] = useState<Record<string, boolean>>({})
+
+  const toggleEditObjective = (id: string) => {
+    setEditingObjectiveIds((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
 
   // Edit Patient Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -839,7 +852,7 @@ export function AttentionSessionModal({
                     type="button"
                     variant={canCompleteGeneralObjective ? 'lime' : 'outline'}
                     disabled={!canCompleteGeneralObjective}
-                    onClick={handleCompleteGeneralObjective}
+                    onClick={() => setIsConfirmCompleteOpen(true)}
                     className={`gap-2 text-xs font-bold ${
                       canCompleteGeneralObjective
                         ? 'shadow-md shadow-lime-900/10 animate-pulse'
@@ -929,7 +942,7 @@ export function AttentionSessionModal({
 
               <form onSubmit={handleSaveEvolution} className="space-y-6">
                 {/* Fecha / Hora */}
-                <div className="max-w-xs space-y-1.5">
+                <div className="w-56 space-y-1.5">
                   <Label htmlFor="fechaHora" required>
                     Fecha y Hora de la Sesión
                   </Label>
@@ -940,7 +953,7 @@ export function AttentionSessionModal({
                       type="datetime-local"
                       value={fechaHora}
                       onChange={(e) => setFechaHora(e.target.value)}
-                      className="pl-9"
+                      className="pl-9 pr-2 text-xs h-10 bg-white"
                       required
                     />
                   </div>
@@ -1002,8 +1015,8 @@ export function AttentionSessionModal({
                           )}
                         </div>
 
-                        {/* Objective Description con maxLength */}
-                        <div className="flex-1 w-full">
+                        {/* Objective Description con maxLength y soporte para bloquear/editar objetivos en seguimiento */}
+                        <div className="flex-1 w-full flex items-center gap-1.5">
                           <Input
                             placeholder="Ej. Mantener tolerancia táctil con texturas mixtas por 10 min..."
                             value={obj.descripcion}
@@ -1011,8 +1024,35 @@ export function AttentionSessionModal({
                               handleUpdateObjectiveText(obj.id, e.target.value)
                             }
                             maxLength={250}
-                            className="h-9 text-sm"
+                            readOnly={Boolean(obj.isFromPreviousSession && !editingObjectiveIds[obj.id])}
+                            className={`h-9 text-sm transition-all ${
+                              obj.isFromPreviousSession && !editingObjectiveIds[obj.id]
+                                ? 'bg-zinc-100/90 border-zinc-200 text-zinc-700 font-medium cursor-default focus:ring-0 focus:border-zinc-200'
+                                : 'bg-white border-zinc-300 focus:border-lime-500'
+                            }`}
                           />
+                          {obj.isFromPreviousSession && (
+                            <button
+                              type="button"
+                              onClick={() => toggleEditObjective(obj.id)}
+                              className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+                                editingObjectiveIds[obj.id]
+                                  ? 'text-lime-800 bg-lime-100 border-lime-300 hover:bg-lime-200 shadow-2xs'
+                                  : 'text-zinc-400 bg-white border-zinc-200 hover:text-lime-800 hover:bg-lime-50'
+                              }`}
+                              title={
+                                editingObjectiveIds[obj.id]
+                                  ? 'Guardar cambio de texto'
+                                  : 'Editar nombre del objetivo en seguimiento'
+                              }
+                            >
+                              {editingObjectiveIds[obj.id] ? (
+                                <Check className="w-4 h-4 text-lime-700 font-bold" />
+                              ) : (
+                                <Edit2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
                         </div>
 
                         {/* Status Selector */}
@@ -1432,6 +1472,16 @@ export function AttentionSessionModal({
         onClose={() => setIsEditModalOpen(false)}
         patient={patient}
         onSave={handleSaveEditedPatient}
+      />
+
+      {/* Modal para Confirmar Completar Objetivo General escribiendo CONFIRMAR */}
+      <CompleteGoalConfirmModal
+        isOpen={isConfirmCompleteOpen}
+        onClose={() => setIsConfirmCompleteOpen(false)}
+        onConfirm={handleCompleteGeneralObjective}
+        objetivoGeneralTexto={patient?.objetivoGeneral || ''}
+        completedObjectivesCount={completedObjectives.length}
+        confirmationWord="CONFIRMAR"
       />
     </>
   )
