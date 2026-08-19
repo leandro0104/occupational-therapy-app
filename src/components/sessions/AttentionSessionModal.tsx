@@ -109,14 +109,17 @@ export function AttentionSessionModal({
 
   /**
    * Helper para filtrar sesiones que pertenecen al ciclo del Objetivo General actual.
-   * RELACIONAL: Prioriza la relación directa por objetivoGeneralId en la base de datos.
+   * RELACIONAL ESTRICTO:
+   * Solo incluye sesiones que pertenezcan explícitamente a este ciclo por objetivoGeneralId
+   * o por objetivoGeneralTexto. Si no hay sesiones creadas para este nuevo ciclo, retorna [].
    */
   const getCurrentCycleSessions = (sessionsList: SessionEvolution[], currentPatient: Patient | null) => {
-    if (!currentPatient) return sessionsList
+    if (!currentPatient) return []
 
     const activeGenId = (currentPatient.objetivoGeneralId || '').trim()
     const activeGenText = (currentPatient.objetivoGeneral || '').trim().toLowerCase()
 
+    // Si el paciente no tiene objetivo general activo, no hay ciclo activo
     if (!activeGenId && !activeGenText) return []
 
     // 1. RELACIÓN PRIMARIA POR ID (Bases de datos relacional)
@@ -139,21 +142,8 @@ export function AttentionSessionModal({
       }
     }
 
-    // 3. Fallback tolerante por fecha si no tiene ID ni texto registrado
-    const historyList = currentPatient.objetivosGeneralesHistorial || []
-    const latestCompletedHistory = historyList.length > 0 ? historyList[0] : null
-    const latestCompletedTime = latestCompletedHistory?.fechaCompletado
-      ? new Date(latestCompletedHistory.fechaCompletado).getTime()
-      : 0
-
-    if (latestCompletedTime > 0) {
-      const tolerance = 24 * 60 * 60 * 1000
-      return sessionsList.filter(
-        (s) => new Date(s.fechaHora).getTime() >= latestCompletedTime - tolerance
-      )
-    }
-
-    return sessionsList
+    // 3. Si no hay ninguna sesión registrada para este nuevo Objetivo General, el ciclo está en blanco (0 sesiones)
+    return []
   }
 
   /**
