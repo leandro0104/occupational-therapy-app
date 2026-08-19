@@ -22,7 +22,8 @@ import {
   TrendingUp,
   Award,
   Lock,
-  Edit3
+  Edit3,
+  RotateCw
 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -231,6 +232,32 @@ export function AttentionSessionModal({
     setObjetivos(objetivos.filter((o) => o.id !== id))
   }
 
+  // Recargar objetivos manualmente
+  const [isRefreshingObjectives, setIsRefreshingObjectives] = useState(false)
+
+  const handleRefreshObjectives = async () => {
+    if (!patient) return
+    setIsRefreshingObjectives(true)
+    try {
+      const updatedSessions = await storageService.getSessionsByPatientId(patient.id)
+      setPastSessions(updatedSessions)
+      initNewSessionWithPendingObjectives(updatedSessions)
+      showToast({
+        title: 'Objetivos Actualizados',
+        description: 'Se han recargado los objetivos pendientes desde la base de datos.',
+        type: 'info'
+      })
+    } catch (err) {
+      showToast({
+        title: 'Error al recargar',
+        description: 'No se pudieron actualizar los objetivos.',
+        type: 'error'
+      })
+    } finally {
+      setTimeout(() => setIsRefreshingObjectives(false), 350)
+    }
+  }
+
   // Save Evolution Session
   const handleSaveEvolution = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -269,9 +296,10 @@ export function AttentionSessionModal({
         type: 'success'
       })
 
-      // Refrescar sesiones del paciente
+      // Refrescar sesiones del paciente y reiniciar formulario con los objetivos pendientes restantes
       const updatedSessions = await storageService.getSessionsByPatientId(patient.id)
       setPastSessions(updatedSessions)
+      initNewSessionWithPendingObjectives(updatedSessions)
 
       if (onSessionSaved) {
         onSessionSaved()
@@ -895,23 +923,41 @@ export function AttentionSessionModal({
 
                 {/* Objetivos de Intervención (Dinámicos y continuos) */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <Label required>Objetivos de Intervención (Objetivos Secundarios)</Label>
                       <p className="text-[11px] text-zinc-500">
                         Define los objetivos trabajados y selecciona su estado de logro.
                       </p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="lime"
-                      size="sm"
-                      onClick={handleAddObjective}
-                      className="gap-1 text-xs"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Agregar Objetivo
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefreshObjectives}
+                        disabled={isRefreshingObjectives}
+                        className="gap-1.5 text-xs text-zinc-700 hover:text-zinc-900 border-zinc-300 bg-white"
+                        title="Recargar objetivos pendientes desde la base de datos"
+                      >
+                        <RotateCw
+                          className={`w-3.5 h-3.5 text-zinc-600 ${
+                            isRefreshingObjectives ? 'animate-spin text-lime-600' : ''
+                          }`}
+                        />
+                        Recargar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="lime"
+                        size="sm"
+                        onClick={handleAddObjective}
+                        className="gap-1 text-xs font-semibold shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Agregar Objetivo
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-3 bg-zinc-50/80 p-4 rounded-xl border border-zinc-200/90">
