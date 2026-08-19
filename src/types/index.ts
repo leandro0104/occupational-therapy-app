@@ -13,6 +13,18 @@ export interface PatientEvaluation {
   resultados: string
 }
 
+export interface GeneralObjectiveHistoryItem {
+  id: string
+  objetivoGeneral: string
+  fechaCompletado: string
+  objetivosSecundarios: {
+    descripcion: string
+    estado: ObjectiveStatus
+    fechaLogro?: string
+  }[]
+  notasCierre?: string
+}
+
 export interface Patient {
   id: string
   // Perfil de la persona
@@ -24,6 +36,11 @@ export interface Patient {
   cuidador: string
   motivoConsulta: string
   fechaIngreso: string
+
+  // Objetivo General (Objetivo Padre del paciente)
+  objetivoGeneral?: string
+  objetivoGeneralCompletado?: boolean
+  objetivosGeneralesHistorial?: GeneralObjectiveHistoryItem[]
   
   // Evaluación inicial
   evaluacion?: PatientEvaluation

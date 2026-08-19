@@ -137,23 +137,26 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Bottom Section: User Profile & Logout (Based on Image 2 footer) */}
+        {/* Bottom Section: User Profile & Logout */}
         <div className="p-4 border-t border-zinc-100 bg-zinc-50/50">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-lime-200 border border-lime-300 flex items-center justify-center text-lime-900 font-bold text-sm shrink-0 overflow-hidden">
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt={user.nombre} className="w-full h-full object-cover" />
-                ) : (
-                  user?.nombre?.charAt(0) || 'U'
-                )}
+              <div className="w-10 h-10 rounded-full bg-lime-200 border-2 border-lime-400 flex items-center justify-center text-lime-900 font-bold text-sm shrink-0 overflow-hidden shadow-xs">
+                <img
+                  src={user?.avatarUrl || '/avatar_fabiola.jpg'}
+                  alt={user?.nombre || 'Fabiola Alarcón'}
+                  className="w-full h-full object-cover object-top"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none'
+                  }}
+                />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-zinc-900 truncate">
-                  {user?.nombre || 'Terapeuta Ocupacional'}
+                  {user?.nombre || 'Fabiola Alarcón S.'}
                 </p>
                 <p className="text-[11px] text-zinc-500 truncate">
-                  {user?.email || 'terapeuta@to-app.cl'}
+                  {user?.email || 'Terapeuta Ocupacional'}
                 </p>
               </div>
             </div>

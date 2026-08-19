@@ -54,12 +54,11 @@ export function App() {
                 id: data.session.user.id,
                 nombre:
                   data.session.user.user_metadata?.nombre ||
-                  data.session.user.email?.split('@')[0] ||
-                  'Terapeuta Ocupacional',
-                email: data.session.user.email || '',
+                  'Fabiola Alarcón S.',
+                email: data.session.user.email || 'fabiola.alarcon@to-app.cl',
                 avatarUrl:
                   data.session.user.user_metadata?.avatarUrl ||
-                  'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+                  '/avatar_fabiola.jpg'
               }
               setUser(authUser)
               storageService.setUser(authUser)
@@ -79,12 +78,11 @@ export function App() {
                   id: session.user.id,
                   nombre:
                     session.user.user_metadata?.nombre ||
-                    session.user.email?.split('@')[0] ||
-                    'Terapeuta Ocupacional',
-                  email: session.user.email || '',
+                    'Fabiola Alarcón S.',
+                  email: session.user.email || 'fabiola.alarcon@to-app.cl',
                   avatarUrl:
                     session.user.user_metadata?.avatarUrl ||
-                    'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+                    '/avatar_fabiola.jpg'
                 }
                 setUser(authUser)
                 storageService.setUser(authUser)
@@ -225,6 +223,13 @@ export function App() {
     setIsAttentionModalOpen(false)
     setSelectedPatientForAttention(null)
     refreshData()
+  }
+
+  const handlePatientUpdated = (updatedPatient: Patient) => {
+    setPatients((prev) =>
+      prev.map((p) => (p.id === updatedPatient.id ? updatedPatient : p))
+    )
+    setSelectedPatientForAttention(updatedPatient)
   }
 
   // Update Password after Recovery Link
@@ -418,6 +423,7 @@ export function App() {
         onClose={handleCloseAttentionModal}
         patient={selectedPatientForAttention}
         onSessionSaved={refreshData}
+        onPatientUpdated={handlePatientUpdated}
       />
 
       {/* Reset Password Modal */}

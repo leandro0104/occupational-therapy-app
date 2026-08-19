@@ -59,15 +59,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         if (data.user) {
           const user: User = {
             id: data.user.id,
-            nombre: data.user.user_metadata?.nombre || data.user.email?.split('@')[0] || 'Terapeuta Ocupacional',
+            nombre: data.user.user_metadata?.nombre || 'Fabiola Alarcón S.',
             email: data.user.email || email,
-            avatarUrl: data.user.user_metadata?.avatarUrl || 'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+            avatarUrl: data.user.user_metadata?.avatarUrl || '/avatar_fabiola.jpg'
           }
           storageService.setUser(user)
           setIsLoading(false)
           showToast({
             title: '¡Sesión iniciada!',
-            description: `Bienvenida ${user.nombre}`,
+            description: `Bienvenida, ${user.nombre}`,
             type: 'success'
           })
           onLoginSuccess(user)
@@ -88,10 +88,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     setTimeout(() => {
       setIsLoading(false)
       const user: User = {
-        id: 'usr-1',
-        nombre: 'Dra. Terapeuta Ocupacional',
+        id: 'user-local-1',
+        nombre: 'Fabiola Alarcón S.',
         email: email,
-        avatarUrl: 'https://images.unsplash.com/photo-1594824813684-904323c2a048?w=150&auto=format&fit=crop&q=80'
+        avatarUrl: '/avatar_fabiola.jpg'
       }
       storageService.setUser(user)
       showToast({

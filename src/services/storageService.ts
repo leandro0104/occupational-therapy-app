@@ -17,6 +17,9 @@ const INITIAL_PATIENTS: Patient[] = [
     cuidador: 'Claudia Silva (Madre)',
     motivoConsulta: 'Dificultades en integración sensorial y motricidad fina en contexto escolar.',
     fechaIngreso: '2026-03-01',
+    objetivoGeneral: 'Desarrollar habilidades sensoriomotoras y de procesamiento táctil para favorecer la autonomía en el desempeño escolar y actividades de la vida diaria.',
+    objetivoGeneralCompletado: false,
+    objetivosGeneralesHistorial: [],
     evaluacion: {
       motivoConsultaDetalle: 'Derivado por neurólogo infantil y colegio debido a problemas de atención, hipersensibilidad táctil y dificultades en agarre de lápiz.',
       evaluacionInicial: 'Se observa prensión trípode estática, fatiga temprana durante actividades de grafomotricidad, hiperreactividad ante texturas ásperas y búsqueda de estímulo propioceptivo.',
@@ -35,6 +38,9 @@ const INITIAL_PATIENTS: Patient[] = [
     cuidador: 'Marcela Morales (Madre)',
     motivoConsulta: 'Retraso en el desarrollo psicomotor e independencia en actividades de la vida diaria (AVD).',
     fechaIngreso: '2026-04-10',
+    objetivoGeneral: 'Incrementar la independencia en AVD básicas (vestido y alimentación) mediante estimulación psicomotriz y praxias bimanuales.',
+    objetivoGeneralCompletado: false,
+    objetivosGeneralesHistorial: [],
     evaluacion: {
       motivoConsultaDetalle: 'Familia consulta para potenciar autonomía en alimentación, vestido y juego simbólico.',
       evaluacionInicial: 'Requiere asistencia física moderada para colocarse prendas sin botones, uso de cuchara con derrame parcial, interés lúdico en juegos causa-efecto.',
@@ -80,6 +86,9 @@ interface DbPatientRow {
   cuidador: string | null
   motivo_consulta: string | null
   fecha_ingreso: string | null
+  objetivo_general?: string | null
+  objetivo_general_completado?: boolean | null
+  objetivos_generales_historial?: any
   motivo_consulta_detalle: string | null
   evaluacion_inicial: string | null
   instrumentos_aplicados: string | null
@@ -109,6 +118,11 @@ function mapDbToPatient(row: DbPatientRow): Patient {
     cuidador: row.cuidador ?? '',
     motivoConsulta: row.motivo_consulta ?? '',
     fechaIngreso: row.fecha_ingreso ?? new Date().toISOString().split('T')[0],
+    objetivoGeneral: row.objetivo_general ?? '',
+    objetivoGeneralCompletado: row.objetivo_general_completado ?? false,
+    objetivosGeneralesHistorial: Array.isArray(row.objetivos_generales_historial)
+      ? row.objetivos_generales_historial
+      : [],
     evaluacion: {
       motivoConsultaDetalle: row.motivo_consulta_detalle ?? '',
       evaluacionInicial: row.evaluacion_inicial ?? '',
@@ -188,6 +202,9 @@ export const storageService = {
             cuidador: patientData.cuidador || null,
             motivo_consulta: patientData.motivoConsulta || null,
             fecha_ingreso: patientData.fechaIngreso || null,
+            objetivo_general: patientData.objetivoGeneral || null,
+            objetivo_general_completado: patientData.objetivoGeneralCompletado ?? false,
+            objetivos_generales_historial: patientData.objetivosGeneralesHistorial || [],
             motivo_consulta_detalle: patientData.evaluacion?.motivoConsultaDetalle || null,
             evaluacion_inicial: patientData.evaluacion?.evaluacionInicial || null,
             instrumentos_aplicados: patientData.evaluacion?.instrumentosAplicados || null,
@@ -216,6 +233,52 @@ export const storageService = {
     local.unshift(newPatient)
     localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(local))
     return newPatient
+  },
+
+  async updatePatient(patient: Patient): Promise<Patient> {
+    if (this.isSupabaseActive()) {
+      try {
+        const { data, error } = await supabase!
+          .from('patients')
+          .update({
+            nombre: patient.nombre,
+            rut: patient.rut,
+            edad: patient.edad ? Number(patient.edad) : null,
+            telefono: patient.telefono || null,
+            correo: patient.correo || null,
+            cuidador: patient.cuidador || null,
+            motivo_consulta: patient.motivoConsulta || null,
+            fecha_ingreso: patient.fechaIngreso || null,
+            objetivo_general: patient.objetivoGeneral || null,
+            objetivo_general_completado: patient.objetivoGeneralCompletado ?? false,
+            objetivos_generales_historial: patient.objetivosGeneralesHistorial || [],
+            motivo_consulta_detalle: patient.evaluacion?.motivoConsultaDetalle || null,
+            evaluacion_inicial: patient.evaluacion?.evaluacionInicial || null,
+            instrumentos_aplicados: patient.evaluacion?.instrumentosAplicados || null,
+            resultados: patient.evaluacion?.resultados || null
+          })
+          .eq('id', patient.id)
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error actualizando paciente en Supabase:', error)
+        } else if (data) {
+          return mapDbToPatient(data as DbPatientRow)
+        }
+      } catch (err) {
+        console.error('Excepción al actualizar paciente en Supabase:', err)
+      }
+    }
+
+    // Fallback local
+    const local = this.getLocalPatients()
+    const index = local.findIndex(p => p.id === patient.id)
+    if (index !== -1) {
+      local[index] = { ...patient, updatedAt: new Date().toISOString() }
+      localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(local))
+    }
+    return patient
   },
 
   async deletePatient(id: string): Promise<boolean> {
