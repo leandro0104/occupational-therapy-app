@@ -344,7 +344,14 @@ export const storageService = {
     const sessions = await this.getSessions()
     return sessions
       .filter(s => s.pacienteId === pacienteId)
-      .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime())
+      .sort((a, b) => {
+        const timeA = new Date(a.fechaHora).getTime()
+        const timeB = new Date(b.fechaHora).getTime()
+        if (timeB !== timeA) return timeB - timeA
+        const createA = new Date(a.createdAt || 0).getTime()
+        const createB = new Date(b.createdAt || 0).getTime()
+        return createB - createA
+      })
   },
 
   async addSession(sessionData: Omit<SessionEvolution, 'id' | 'createdAt'>): Promise<SessionEvolution> {

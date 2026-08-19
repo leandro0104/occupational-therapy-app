@@ -115,7 +115,20 @@ export function AttentionSessionModal({
     setDescripcionSesion('')
     setActiveTab('new_session')
 
-    if (sessionsList.length === 0) {
+    // Determinar el ciclo actual del objetivo general
+    const historyList = patient?.objetivosGeneralesHistorial || []
+    const latestCompletedTime =
+      historyList.length > 0 && historyList[0]?.fechaCompletado
+        ? new Date(historyList[0].fechaCompletado).getTime()
+        : 0
+
+    const currentCycleSessions = latestCompletedTime > 0
+      ? sessionsList.filter(
+          (s) => new Date(s.fechaHora).getTime() >= latestCompletedTime
+        )
+      : sessionsList
+
+    if (currentCycleSessions.length === 0) {
       setObjetivos([
         {
           id: 'obj-' + Date.now() + '-1',
@@ -127,18 +140,41 @@ export function AttentionSessionModal({
       return
     }
 
-    const latestSession = sessionsList[0]
-    const pendingFromPrevious = (latestSession.objetivos || [])
-      .filter((obj) => obj.estado !== 'logrado' && obj.descripcion.trim() !== '')
-      .map((obj, idx) => ({
-        id: 'obj-' + Date.now() + '-' + (idx + 1),
-        descripcion: obj.descripcion,
-        estado: obj.estado,
-        isFromPreviousSession: true
-      }))
+    // Recorrer las sesiones del ciclo actual de la más antigua a la más nueva
+    const chronological = [...currentCycleSessions].reverse()
+    const achievedDescSet = new Set<string>()
+    const latestPendingMap = new Map<string, { descripcion: string; estado: ObjectiveStatus }>()
 
-    if (pendingFromPrevious.length > 0) {
-      setObjetivos(pendingFromPrevious)
+    chronological.forEach((session) => {
+      (session.objetivos || []).forEach((obj) => {
+        const descKey = obj.descripcion.trim().toLowerCase()
+        if (!descKey) return
+
+        if (obj.estado === 'logrado') {
+          // Si fue marcado como logrado en cualquier sesión de este ciclo, se da por terminado
+          achievedDescSet.add(descKey)
+          latestPendingMap.delete(descKey)
+        } else {
+          // Si no está logrado y NO ha sido alcanzado previamente
+          if (!achievedDescSet.has(descKey)) {
+            latestPendingMap.set(descKey, {
+              descripcion: obj.descripcion,
+              estado: obj.estado // Mantiene el último estado asignado
+            })
+          }
+        }
+      })
+    })
+
+    const pendingList: ExtendedObjective[] = Array.from(latestPendingMap.values()).map((item, idx) => ({
+      id: 'obj-' + Date.now() + '-' + (idx + 1),
+      descripcion: item.descripcion,
+      estado: item.estado,
+      isFromPreviousSession: true
+    }))
+
+    if (pendingList.length > 0) {
+      setObjetivos(pendingList)
     } else {
       setObjetivos([
         {
@@ -818,13 +854,13 @@ export function AttentionSessionModal({
 
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="lime"
                   size="sm"
                   onClick={handleManualResetNewSession}
-                  className="text-xs gap-1.5"
+                  className="text-xs gap-1.5 font-semibold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  + Nueva Atención (Recargar)
+                  Nueva Atención
                 </Button>
               </div>
 
