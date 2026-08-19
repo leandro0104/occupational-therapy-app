@@ -138,6 +138,9 @@ export function CreatePatientModal({
     }
 
     const fullPhoneNumber = `+56 9 ${phoneDigits.trim()}`
+    const genObjId = objetivoGeneral.trim()
+      ? 'gen-obj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)
+      : undefined
 
     const newPatient: Omit<Patient, 'id' | 'createdAt'> = {
       nombre: nombre.trim(),
@@ -148,6 +151,7 @@ export function CreatePatientModal({
       cuidador: cuidador.trim(),
       motivoConsulta: motivoConsulta.trim(),
       fechaIngreso: fechaIngreso,
+      objetivoGeneralId: genObjId,
       objetivoGeneral: objetivoGeneral.trim(),
       objetivoGeneralCompletado: false,
       objetivosGeneralesHistorial: [],

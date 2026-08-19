@@ -139,6 +139,10 @@ export function EditPatientModal({
 
     const fullPhoneNumber = `+56 9 ${phoneDigits.trim()}`
 
+    const genObjId = objetivoGeneral.trim()
+      ? patient.objetivoGeneralId || ('gen-obj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6))
+      : undefined
+
     const updatedPatient: Patient = {
       ...patient,
       nombre: nombre.trim(),
@@ -149,6 +153,7 @@ export function EditPatientModal({
       cuidador: cuidador.trim(),
       motivoConsulta: motivoConsulta.trim(),
       fechaIngreso: fechaIngreso,
+      objetivoGeneralId: genObjId,
       objetivoGeneral: objetivoGeneral.trim(),
       evaluacion: {
         motivoConsultaDetalle: motivoConsultaDetalle.trim(),

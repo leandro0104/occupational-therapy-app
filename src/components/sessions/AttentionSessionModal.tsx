@@ -109,25 +109,37 @@ export function AttentionSessionModal({
 
   /**
    * Helper para filtrar sesiones que pertenecen al ciclo del Objetivo General actual.
-   * Prioriza la vinculación directa por objetivoGeneralTexto y cuenta con tolerancia horaria.
+   * RELACIONAL: Prioriza la relación directa por objetivoGeneralId en la base de datos.
    */
   const getCurrentCycleSessions = (sessionsList: SessionEvolution[], currentPatient: Patient | null) => {
     if (!currentPatient) return sessionsList
 
-    const activeGenObj = (currentPatient.objetivoGeneral || '').trim().toLowerCase()
-    if (!activeGenObj) return []
+    const activeGenId = (currentPatient.objetivoGeneralId || '').trim()
+    const activeGenText = (currentPatient.objetivoGeneral || '').trim().toLowerCase()
 
-    // 1. Si hay sesiones con el texto del Objetivo General grabado explícitamente
-    const matchedSessions = sessionsList.filter((s) => {
-      const sessGenObj = (s.objetivoGeneralTexto || '').trim().toLowerCase()
-      return sessGenObj === activeGenObj
-    })
+    if (!activeGenId && !activeGenText) return []
 
-    if (matchedSessions.length > 0) {
-      return matchedSessions
+    // 1. RELACIÓN PRIMARIA POR ID (Bases de datos relacional)
+    if (activeGenId) {
+      const matchedById = sessionsList.filter(
+        (s) => s.objetivoGeneralId && s.objetivoGeneralId === activeGenId
+      )
+      if (matchedById.length > 0) {
+        return matchedById
+      }
     }
 
-    // 2. Si las sesiones aún no tienen objetivoGeneralTexto (compatibilidad con sesiones previas)
+    // 2. Coincidencia por texto descriptivo del objetivo (compatibilidad)
+    if (activeGenText) {
+      const matchedByText = sessionsList.filter(
+        (s) => (s.objetivoGeneralTexto || '').trim().toLowerCase() === activeGenText
+      )
+      if (matchedByText.length > 0) {
+        return matchedByText
+      }
+    }
+
+    // 3. Fallback tolerante por fecha si no tiene ID ni texto registrado
     const historyList = currentPatient.objetivosGeneralesHistorial || []
     const latestCompletedHistory = historyList.length > 0 ? historyList[0] : null
     const latestCompletedTime = latestCompletedHistory?.fechaCompletado
@@ -135,7 +147,6 @@ export function AttentionSessionModal({
       : 0
 
     if (latestCompletedTime > 0) {
-      // 24 horas de margen para evitar fallos por huso horario
       const tolerance = 24 * 60 * 60 * 1000
       return sessionsList.filter(
         (s) => new Date(s.fechaHora).getTime() >= latestCompletedTime - tolerance
@@ -307,11 +318,14 @@ export function AttentionSessionModal({
         validObjectives.length > 0 ? validObjectives : objetivos
       ).map(({ id, descripcion, estado }) => ({ id, descripcion, estado }))
 
+      const genObjId = patient.objetivoGeneralId || (patient.objetivoGeneral?.trim() ? 'gen-obj-' + Date.now() : '')
+
       await storageService.addSession({
         pacienteId: patient.id,
         pacienteNombre: patient.nombre,
         pacienteRut: patient.rut,
         fechaHora: fechaHora || getCurrentLocalDateTime(),
+        objetivoGeneralId: genObjId || undefined,
         objetivoGeneralTexto: patient.objetivoGeneral || '',
         objetivos: cleanObjectives,
         descripcionSesion: descripcionSesion.trim()
@@ -386,7 +400,7 @@ export function AttentionSessionModal({
       pendingObjectives: pending,
       achievementRate: rate
     }
-  }, [pastSessions, patient?.objetivoGeneral, patient?.objetivosGeneralesHistorial])
+  }, [pastSessions, patient?.objetivoGeneralId, patient?.objetivoGeneral, patient?.objetivosGeneralesHistorial])
 
   // =========================================================================
   // MANEJO DE COMPLETAR Y CREAR OBJETIVO GENERAL (OBJETIVO PADRE)
@@ -402,8 +416,10 @@ export function AttentionSessionModal({
   const handleCompleteGeneralObjective = async () => {
     if (!patient || !patient.objetivoGeneral) return
 
+    const completedGenId = patient.objetivoGeneralId || ('gen-obj-' + Date.now())
+
     const historyItem: GeneralObjectiveHistoryItem = {
-      id: 'gen-obj-' + Date.now(),
+      id: completedGenId,
       objetivoGeneral: patient.objetivoGeneral,
       fechaCompletado: new Date().toISOString(),
       objetivosSecundarios: completedObjectives.map((o) => ({
@@ -419,6 +435,7 @@ export function AttentionSessionModal({
 
     const updatedPatient: Patient = {
       ...patient,
+      objetivoGeneralId: '',
       objetivoGeneral: '', // Se limpia para que ya no aparezca en la ficha activa
       objetivoGeneralCompletado: true,
       objetivosGeneralesHistorial: [historyItem, ...currentHistory]
@@ -455,8 +472,11 @@ export function AttentionSessionModal({
     }
 
     setIsSavingGenObj(true)
+    const newGenId = 'gen-obj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6)
+
     const updatedPatient: Patient = {
       ...patient,
+      objetivoGeneralId: newGenId,
       objetivoGeneral: newGenObjText.trim(),
       objetivoGeneralCompletado: false
     }

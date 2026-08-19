@@ -1,4 +1,4 @@
-import { Patient, SessionEvolution } from '../types'
+import { Patient, SessionEvolution, User } from '../types'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 const PATIENTS_STORAGE_KEY = 'to_app_patients_v1'
@@ -17,6 +17,7 @@ const INITIAL_PATIENTS: Patient[] = [
     cuidador: 'Claudia Silva (Madre)',
     motivoConsulta: 'Dificultades en integración sensorial y motricidad fina en contexto escolar.',
     fechaIngreso: '2026-03-01',
+    objetivoGeneralId: 'gen-obj-init-1',
     objetivoGeneral: 'Desarrollar habilidades sensoriomotoras y de procesamiento táctil para favorecer la autonomía en el desempeño escolar y actividades de la vida diaria.',
     objetivoGeneralCompletado: false,
     objetivosGeneralesHistorial: [],
@@ -38,6 +39,7 @@ const INITIAL_PATIENTS: Patient[] = [
     cuidador: 'Marcela Morales (Madre)',
     motivoConsulta: 'Retraso en el desarrollo psicomotor e independencia en actividades de la vida diaria (AVD).',
     fechaIngreso: '2026-04-10',
+    objetivoGeneralId: 'gen-obj-init-2',
     objetivoGeneral: 'Incrementar la independencia en AVD básicas (vestido y alimentación) mediante estimulación psicomotriz y praxias bimanuales.',
     objetivoGeneralCompletado: false,
     objetivosGeneralesHistorial: [],
@@ -58,6 +60,8 @@ const INITIAL_SESSIONS: SessionEvolution[] = [
     pacienteNombre: 'Mateo Fernández Silva',
     pacienteRut: '22.451.890-K',
     fechaHora: '2026-08-10T15:30',
+    objetivoGeneralId: 'gen-obj-init-1',
+    objetivoGeneralTexto: 'Desarrollar habilidades sensoriomotoras y de procesamiento táctil para favorecer la autonomía en el desempeño escolar y actividades de la vida diaria.',
     objetivos: [
       {
         id: 'obj-1',
@@ -86,6 +90,7 @@ interface DbPatientRow {
   cuidador: string | null
   motivo_consulta: string | null
   fecha_ingreso: string | null
+  objetivo_general_id?: string | null
   objetivo_general?: string | null
   objetivo_general_completado?: boolean | null
   objetivos_generales_historial?: any
@@ -102,6 +107,7 @@ interface DbSessionRow {
   paciente_nombre: string
   paciente_rut: string
   fecha_hora: string
+  objetivo_general_id?: string | null
   objetivo_general_texto?: string | null
   objetivos: any
   descripcion_sesion: string
@@ -119,6 +125,7 @@ function mapDbToPatient(row: DbPatientRow): Patient {
     cuidador: row.cuidador ?? '',
     motivoConsulta: row.motivo_consulta ?? '',
     fechaIngreso: row.fecha_ingreso ?? new Date().toISOString().split('T')[0],
+    objetivoGeneralId: row.objetivo_general_id ?? '',
     objetivoGeneral: row.objetivo_general ?? '',
     objetivoGeneralCompletado: row.objetivo_general_completado ?? false,
     objetivosGeneralesHistorial: Array.isArray(row.objetivos_generales_historial)
@@ -141,6 +148,7 @@ function mapDbToSession(row: DbSessionRow): SessionEvolution {
     pacienteNombre: row.paciente_nombre,
     pacienteRut: row.paciente_rut,
     fechaHora: row.fecha_hora,
+    objetivoGeneralId: row.objetivo_general_id ?? '',
     objetivoGeneralTexto: row.objetivo_general_texto ?? '',
     objetivos: Array.isArray(row.objetivos) ? row.objetivos : [],
     descripcionSesion: row.descripcion_sesion ?? '',
@@ -165,15 +173,18 @@ export const storageService = {
           .order('created_at', { ascending: false })
 
         if (error) {
-          console.error('Error cargando pacientes de Supabase:', error)
-          return this.getLocalPatients()
+          console.error('Error obteniendo pacientes de Supabase:', error)
+        } else if (data) {
+          const dbPatients = data.map((row: any) => mapDbToPatient(row as DbPatientRow))
+          // Actualizar caché local
+          localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(dbPatients))
+          return dbPatients
         }
-        return (data as DbPatientRow[]).map(mapDbToPatient)
       } catch (err) {
-        console.error('Fallo de conexión a Supabase:', err)
-        return this.getLocalPatients()
+        console.error('Excepción al conectar con Supabase (patients):', err)
       }
     }
+
     return this.getLocalPatients()
   },
 
@@ -191,6 +202,8 @@ export const storageService = {
   },
 
   async addPatient(patientData: Omit<Patient, 'id' | 'createdAt'>): Promise<Patient> {
+    const genObjId = patientData.objetivoGeneralId || (patientData.objetivoGeneral?.trim() ? 'gen-obj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6) : null)
+
     if (this.isSupabaseActive()) {
       try {
         const { data, error } = await supabase!
@@ -204,6 +217,7 @@ export const storageService = {
             cuidador: patientData.cuidador || null,
             motivo_consulta: patientData.motivoConsulta || null,
             fecha_ingreso: patientData.fechaIngreso || null,
+            objetivo_general_id: genObjId,
             objetivo_general: patientData.objetivoGeneral || null,
             objetivo_general_completado: patientData.objetivoGeneralCompletado ?? false,
             objetivos_generales_historial: patientData.objetivosGeneralesHistorial || [],
@@ -230,6 +244,7 @@ export const storageService = {
     const newPatient: Patient = {
       ...patientData,
       id: 'pat-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+      objetivoGeneralId: genObjId || undefined,
       createdAt: new Date().toISOString()
     }
     local.unshift(newPatient)
@@ -238,6 +253,8 @@ export const storageService = {
   },
 
   async updatePatient(patient: Patient): Promise<Patient> {
+    const genObjId = patient.objetivoGeneralId || (patient.objetivoGeneral?.trim() ? 'gen-obj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6) : null)
+
     if (this.isSupabaseActive()) {
       try {
         const { data, error } = await supabase!
@@ -251,6 +268,7 @@ export const storageService = {
             cuidador: patient.cuidador || null,
             motivo_consulta: patient.motivoConsulta || null,
             fecha_ingreso: patient.fechaIngreso || null,
+            objetivo_general_id: genObjId,
             objetivo_general: patient.objetivoGeneral || null,
             objetivo_general_completado: patient.objetivoGeneralCompletado ?? false,
             objetivos_generales_historial: patient.objetivosGeneralesHistorial || [],
@@ -277,10 +295,10 @@ export const storageService = {
     const local = this.getLocalPatients()
     const index = local.findIndex(p => p.id === patient.id)
     if (index !== -1) {
-      local[index] = { ...patient, updatedAt: new Date().toISOString() }
+      local[index] = { ...patient, objetivoGeneralId: genObjId || undefined, updatedAt: new Date().toISOString() }
       localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(local))
     }
-    return patient
+    return { ...patient, objetivoGeneralId: genObjId || undefined }
   },
 
   async deletePatient(id: string): Promise<boolean> {
@@ -302,11 +320,17 @@ export const storageService = {
     const local = this.getLocalPatients()
     const filtered = local.filter(p => p.id !== id)
     localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(filtered))
+
+    // También eliminar sesiones asociadas
+    const sessions = this.getLocalSessions()
+    const filteredSessions = sessions.filter(s => s.pacienteId !== id)
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(filteredSessions))
+
     return true
   },
 
   // ==========================================
-  // SESIONES / EVOLUCIONES
+  // SESIONES Y EVOLUCIÓN
   // ==========================================
   async getSessions(): Promise<SessionEvolution[]> {
     if (this.isSupabaseActive()) {
@@ -317,15 +341,17 @@ export const storageService = {
           .order('fecha_hora', { ascending: false })
 
         if (error) {
-          console.error('Error cargando sesiones de Supabase:', error)
-          return this.getLocalSessions()
+          console.error('Error obteniendo sesiones de Supabase:', error)
+        } else if (data) {
+          const dbSessions = data.map((row: any) => mapDbToSession(row as DbSessionRow))
+          localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(dbSessions))
+          return dbSessions
         }
-        return (data as DbSessionRow[]).map(mapDbToSession)
       } catch (err) {
-        console.error('Fallo de conexión a sesiones Supabase:', err)
-        return this.getLocalSessions()
+        console.error('Excepción al conectar con Supabase (sessions):', err)
       }
     }
+
     return this.getLocalSessions()
   },
 
@@ -366,6 +392,7 @@ export const storageService = {
             paciente_nombre: sessionData.pacienteNombre,
             paciente_rut: sessionData.pacienteRut,
             fecha_hora: sessionData.fechaHora,
+            objetivo_general_id: sessionData.objetivoGeneralId || null,
             objetivo_general_texto: sessionData.objetivoGeneralTexto || null,
             objetivos: sessionData.objetivos,
             descripcion_sesion: sessionData.descripcionSesion
@@ -418,9 +445,9 @@ export const storageService = {
   },
 
   // ==========================================
-  // USUARIO / AUTH LOCAL
+  // USUARIO / SESIÓN ACTIVA
   // ==========================================
-  getUser() {
+  getUser(): User | null {
     const raw = localStorage.getItem(USER_STORAGE_KEY)
     if (!raw) return null
     try {
@@ -430,11 +457,11 @@ export const storageService = {
     }
   },
 
-  setUser(user: { id: string; nombre: string; email: string; avatarUrl?: string }) {
+  setUser(user: User): void {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
   },
 
-  clearUser() {
+  clearUser(): void {
     localStorage.removeItem(USER_STORAGE_KEY)
   }
 }

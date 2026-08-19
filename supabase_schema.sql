@@ -1,21 +1,25 @@
--- ==============================================================================
--- ESQUEMA DE BASE DE DATOS SUPABASE: APP TERAPIA OCUPACIONAL (ACTUALIZADO)
--- Copia y pega este script completo en el SQL Editor de tu proyecto en Supabase
--- ==============================================================================
+-- =========================================================================
+-- ESQUEMA DE BASE DE DATOS SUPABASE - SISTEMA TERAPIA OCUPACIONAL
+-- Terapeuta Responsable: Fabiola Alarcón S. (UOH)
+-- =========================================================================
 
--- 1. Tabla de Pacientes (Perfil de la Persona, Objetivo General y Evaluación Inicial)
+-- Habilitar extensión para generación de UUIDs
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 1. Tabla de Pacientes / Usuarios
 CREATE TABLE IF NOT EXISTS public.patients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre VARCHAR(100) NOT NULL,
-    rut VARCHAR(12) NOT NULL,
-    edad INTEGER NOT NULL,
-    telefono VARCHAR(20) NOT NULL,
+    rut VARCHAR(12) NOT NULL UNIQUE,
+    edad INT CHECK (edad >= 0 AND edad <= 120),
+    telefono VARCHAR(20),
     correo VARCHAR(100),
     cuidador VARCHAR(100),
     motivo_consulta VARCHAR(200) NOT NULL,
-    fecha_ingreso DATE DEFAULT CURRENT_DATE NOT NULL,
+    fecha_ingreso DATE NOT NULL DEFAULT CURRENT_DATE,
     
-    -- Objetivo General (Objetivo Padre del paciente)
+    -- Relación con Objetivo General Padre
+    objetivo_general_id VARCHAR(100),
     objetivo_general VARCHAR(300),
     objetivo_general_completado BOOLEAN DEFAULT FALSE,
     objetivos_generales_historial JSONB DEFAULT '[]'::JSONB,
@@ -31,18 +35,22 @@ CREATE TABLE IF NOT EXISTS public.patients (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Si la tabla ya existe, agregar las columnas de Objetivo General en caso de que falten:
+-- Migraciones automáticas para tablas existentes:
+ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivo_general_id VARCHAR(100);
 ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivo_general VARCHAR(300);
 ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivo_general_completado BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivos_generales_historial JSONB DEFAULT '[]'::JSONB;
 
--- 2. Tabla de Sesiones y Evoluciones Clínicas
+-- 2. Tabla de Sesiones y Evoluciones Clínicas (Relacional)
 CREATE TABLE IF NOT EXISTS public.sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     paciente_id UUID REFERENCES public.patients(id) ON DELETE CASCADE,
     paciente_nombre VARCHAR(100),
     paciente_rut VARCHAR(12),
     fecha_hora TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- Relación formal por ID con el Objetivo General
+    objetivo_general_id VARCHAR(100),
     objetivo_general_texto VARCHAR(300),
     
     -- Objetivos de intervención dinámicos guardados en formato JSONB
@@ -53,26 +61,24 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Si la tabla sessions ya existe, agregar la columna objetivo_general_texto si falta:
+-- Migraciones automáticas para la tabla sessions:
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS objetivo_general_id VARCHAR(100);
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS objetivo_general_texto VARCHAR(300);
 
--- 3. Índices para búsquedas rápidas
+-- 3. Índices para consultas relacionales ultra-rápidas
 CREATE INDEX IF NOT EXISTS idx_patients_rut ON public.patients(rut);
 CREATE INDEX IF NOT EXISTS idx_patients_nombre ON public.patients(nombre);
 CREATE INDEX IF NOT EXISTS idx_sessions_paciente_id ON public.sessions(paciente_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_objetivo_general_id ON public.sessions(objetivo_general_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_fecha ON public.sessions(fecha_hora DESC);
 
--- 4. Habilitar Seguridad a Nivel de Fila (Row Level Security - RLS)
+-- 4. Políticas de Seguridad (Row Level Security - RLS)
 ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 
--- 5. Eliminar políticas previas si existiesen
-DROP POLICY IF EXISTS "Permitir todo en patients" ON public.patients;
-DROP POLICY IF EXISTS "Permitir todo en sessions" ON public.sessions;
 DROP POLICY IF EXISTS "Acceso total pacientes para usuarios autenticados" ON public.patients;
 DROP POLICY IF EXISTS "Acceso total sesiones para usuarios autenticados" ON public.sessions;
 
--- 6. Políticas de Acceso para Terapeuta Autenticado (Seguro y sin advertencias)
 CREATE POLICY "Acceso total pacientes para usuarios autenticados" ON public.patients
     FOR ALL
     TO authenticated

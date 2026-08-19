@@ -38,6 +38,7 @@ export interface Patient {
   fechaIngreso: string
 
   // Objetivo General (Objetivo Padre del paciente)
+  objetivoGeneralId?: string
   objetivoGeneral?: string
   objetivoGeneralCompletado?: boolean
   objetivosGeneralesHistorial?: GeneralObjectiveHistoryItem[]
@@ -56,7 +57,8 @@ export interface SessionEvolution {
   pacienteNombre: string
   pacienteRut: string
   fechaHora: string // ISO date string
-  objetivoGeneralTexto?: string // Objetivo general asociado
+  objetivoGeneralId?: string // ID de relación al Objetivo General en la BD
+  objetivoGeneralTexto?: string // Texto descriptivo del Objetivo General
   objetivos: InterventionObjective[]
   descripcionSesion: string
   createdAt: string
