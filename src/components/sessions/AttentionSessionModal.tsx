@@ -528,57 +528,58 @@ export function AttentionSessionModal({
         isOpen={isOpen}
         onClose={onClose}
         size="full"
-        className="max-w-[1200px] h-[94vh] flex flex-col bg-zinc-50"
+        className="max-w-[1200px] h-[94vh] sm:h-[94vh] flex flex-col bg-zinc-50"
         title={
-          <div className="flex flex-wrap items-center justify-between gap-4 w-full pr-6">
+          <div className="flex flex-col gap-3 w-full pr-6">
+            {/* Patient info row */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-lime-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                <ActivityIcon className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-lime-500 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+                <ActivityIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold text-zinc-900">{patient.nombre}</h2>
-                  <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-zinc-200 text-zinc-800 font-semibold">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-xl font-bold text-zinc-900 truncate">{patient.nombre}</h2>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-800 font-semibold hidden sm:inline">
                     {patient.rut}
                   </span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-lime-100 text-lime-800 font-semibold">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-lime-100 text-lime-800 font-semibold">
                     {patient.edad ? `${patient.edad} años` : 'Edad no reg.'}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-500 mt-0.5">
+                <p className="text-xs text-zinc-500 mt-0.5 hidden sm:block">
                   Ficha Clínica y Registro de Evolución de Terapia Ocupacional
                 </p>
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex items-center gap-2">
+            {/* Navigation Tabs — wrap on mobile */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Button
                 type="button"
                 variant={activeTab === 'new_session' ? 'lime' : 'outline'}
                 size="sm"
                 onClick={() => setActiveTab('new_session')}
-                className="gap-1.5 text-xs font-semibold"
+                className="gap-1.5 text-xs font-semibold flex-1 sm:flex-none"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Nueva Atención
+                <span className="hidden xs:inline">Nueva </span>Atención
               </Button>
               <Button
                 type="button"
                 variant={activeTab === 'objectives_summary' ? 'lime' : 'outline'}
                 size="sm"
                 onClick={() => setActiveTab('objectives_summary')}
-                className="gap-1.5 text-xs font-semibold"
+                className="gap-1.5 text-xs font-semibold flex-1 sm:flex-none"
               >
                 <Target className="w-3.5 h-3.5" />
-                Detalle Objetivos ({completedObjectives.length + pendingObjectives.length})
+                <span className="hidden xs:inline">Objetivos </span>({completedObjectives.length + pendingObjectives.length})
               </Button>
               <Button
                 type="button"
                 variant={activeTab === 'history' ? 'lime' : 'outline'}
                 size="sm"
                 onClick={() => setActiveTab('history')}
-                className="gap-1.5 text-xs font-semibold"
+                className="gap-1.5 text-xs font-semibold flex-1 sm:flex-none"
               >
                 <History className="w-3.5 h-3.5" />
                 Historial ({pastSessions.length})
@@ -632,7 +633,7 @@ export function AttentionSessionModal({
             </div>
 
             {showFullProfile && (
-              <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white animate-in fade-in duration-150">
+              <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 bg-white animate-in fade-in duration-150">
                 {/* Módulo 1: Perfil de la Persona */}
                 <div className="space-y-3 bg-zinc-50/70 rounded-xl p-4 border border-zinc-200/70">
                   <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
@@ -642,7 +643,7 @@ export function AttentionSessionModal({
                     </h4>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 text-xs">
                     <div>
                       <span className="text-zinc-400 block font-medium">Nombre:</span>
                       <span className="font-semibold text-zinc-900">{patient.nombre}</span>
@@ -678,14 +679,14 @@ export function AttentionSessionModal({
                         {patient.correo || <span className="text-zinc-400 italic">No registrado</span>}
                       </span>
                     </div>
-                    <div className="col-span-2">
+                    <div className="xs:col-span-2">
                       <span className="text-zinc-400 block font-medium">Cuidador/a:</span>
                       <span className="font-semibold text-zinc-900 flex items-center gap-1">
                         <HeartHandshake className="w-3.5 h-3.5 text-lime-600" />
                         {patient.cuidador || <span className="text-zinc-400 italic">No registrado</span>}
                       </span>
                     </div>
-                    <div className="col-span-2 bg-white p-2 rounded-lg border border-zinc-200">
+                    <div className="xs:col-span-2 bg-white p-2 rounded-lg border border-zinc-200">
                       <span className="text-zinc-400 block font-medium text-[11px]">
                         Motivo de Consulta General:
                       </span>

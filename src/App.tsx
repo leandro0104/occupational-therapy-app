@@ -13,7 +13,7 @@ import { Label } from './components/ui/label'
 import { storageService } from './services/storageService'
 import { Patient, SessionEvolution, User } from './types'
 import { supabase, isSupabaseConfigured } from './lib/supabase'
-import { KeyRound } from 'lucide-react'
+import { KeyRound, Menu, Activity } from 'lucide-react'
 
 export function App() {
   // Auth state
@@ -22,6 +22,9 @@ export function App() {
 
   // Navigation tab: 'patients' (Mantenedor) or 'history' (Historial de Atenciones)
   const [activeTab, setActiveTab] = useState<'patients' | 'history'>('patients')
+
+  // Mobile sidebar drawer state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   // Data states
   const [patients, setPatients] = useState<Patient[]>([])
@@ -380,8 +383,8 @@ export function App() {
 
   // Main Authenticated Dashboard (Based on Image 2)
   return (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col md:flex-row antialiased">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-[#fafafa] flex antialiased">
+      {/* Sidebar (desktop: sticky column, mobile: drawer) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -389,10 +392,38 @@ export function App() {
         onLogout={handleLogout}
         patientCount={patients.length}
         sessionCount={sessions.length}
+        isMobileOpen={isMobileSidebarOpen}
+        onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full overflow-y-auto min-h-screen">
+      {/* Main Content + Mobile Header wrapper */}
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+        {/* Mobile Header — visible only on < lg */}
+        <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-zinc-200/80 px-4 py-3 flex items-center justify-between shadow-sm">
+          <button
+            id="mobile-menu-btn"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            aria-label="Abrir menú"
+            className="p-2 rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-zinc-950 flex items-center justify-center text-lime-400">
+              <Activity className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-bold text-sm text-zinc-900 tracking-tight">
+              Terapia Ocupacional
+            </span>
+          </div>
+
+          {/* Spacer to center the logo */}
+          <div className="w-9" />
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
         {activeTab === 'patients' ? (
           <PatientTable
             patients={patients}
@@ -409,7 +440,8 @@ export function App() {
             onOpenPatientAttention={handleOpenAttentionModal}
           />
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Modal: Crear Usuario / Paciente */}
       <CreatePatientModal

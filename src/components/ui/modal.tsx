@@ -55,7 +55,7 @@ export function Modal({
   }[size]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
@@ -65,17 +65,30 @@ export function Modal({
       {/* Dialog container */}
       <div
         className={cn(
-          "relative z-50 w-full rounded-2xl bg-white shadow-2xl border border-zinc-200/80 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200",
+          // Mobile: full-width, rounded top corners, slides from bottom
+          "relative z-50 w-full bg-white border border-zinc-200/80 flex flex-col overflow-hidden",
+          "rounded-t-2xl sm:rounded-2xl",
+          "max-h-[92dvh] sm:max-h-[92vh]",
+          "shadow-2xl",
+          // Mobile: full width bottom sheet, desktop: constrained
+          "sm:mx-auto",
           sizeClasses,
+          // Animation: slide up on mobile, zoom on desktop
+          "animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200",
           className
         )}
       >
+        {/* Mobile drag handle */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 bg-zinc-300 rounded-full" />
+        </div>
+
         {/* Header */}
         {(title || !hideCloseButton) && (
-          <div className="flex items-start justify-between border-b border-zinc-100 px-6 py-4 bg-zinc-50/50">
+          <div className="flex items-start justify-between border-b border-zinc-100 px-4 sm:px-6 py-3 sm:py-4 bg-zinc-50/50 flex-shrink-0">
             <div>
               {title && (
-                <h3 className="text-lg font-bold text-zinc-900 leading-tight">
+                <h3 className="text-base sm:text-lg font-bold text-zinc-900 leading-tight">
                   {title}
                 </h3>
               )}
@@ -88,7 +101,7 @@ export function Modal({
             {!hideCloseButton && (
               <button
                 onClick={onClose}
-                className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+                className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors ml-2 flex-shrink-0"
                 aria-label="Cerrar"
               >
                 <X className="h-5 w-5" />
@@ -98,7 +111,7 @@ export function Modal({
         )}
 
         {/* Content body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {children}
         </div>
       </div>

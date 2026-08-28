@@ -149,8 +149,8 @@ export function PatientTable({
         </div>
       </div>
 
-      {/* Patients Table */}
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+      {/* Patients Table — visible on md+ */}
+      <div className="hidden md:block bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -376,6 +376,130 @@ export function PatientTable({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Card View — visible on < md */}
+      <div className="md:hidden space-y-3">
+        {paginatedPatients.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-zinc-200 p-10 text-center text-zinc-400">
+            <p className="font-medium text-sm">No se encontraron pacientes.</p>
+            {searchTerm && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchTerm('')}
+                className="mt-3 text-xs"
+              >
+                Ver todos los pacientes
+              </Button>
+            )}
+          </div>
+        ) : (
+          paginatedPatients.map((patient) => (
+            <div
+              key={patient.id}
+              className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4 space-y-3"
+            >
+              {/* Card Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <button
+                    onClick={() => onOpenAttentionModal(patient)}
+                    className="text-left font-bold text-zinc-900 hover:text-lime-700 transition-colors text-base leading-tight"
+                  >
+                    {patient.nombre}
+                  </button>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="font-mono text-xs text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md">
+                      {patient.rut}
+                    </span>
+                    {(patient.edad !== undefined && patient.edad !== '') && (
+                      <span className="text-xs text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full font-semibold">
+                        {patient.edad} años
+                      </span>
+                    )}
+                    <span className="text-xs text-zinc-400">
+                      {formatDate(patient.fechaIngreso)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact info */}
+              {(patient.telefono || patient.correo) && (
+                <div className="flex flex-wrap gap-3 text-xs text-zinc-600">
+                  {patient.telefono && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-zinc-400" />
+                      {patient.telefono}
+                    </span>
+                  )}
+                  {patient.correo && (
+                    <span className="flex items-center gap-1 truncate max-w-full">
+                      <Mail className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      <span className="truncate">{patient.correo}</span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Motivo */}
+              {patient.motivoConsulta && (
+                <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2 bg-zinc-50 rounded-lg px-3 py-2 border border-zinc-100">
+                  {patient.motivoConsulta}
+                </p>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
+                <button
+                  onClick={() => onOpenAttentionModal(patient)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-lime-100 hover:bg-lime-200 text-lime-900 text-xs font-bold transition-all active:scale-95"
+                >
+                  <Stethoscope className="w-3.5 h-3.5 text-lime-700" />
+                  Atención
+                </button>
+                <button
+                  onClick={() => setPatientToEdit(patient)}
+                  className="flex items-center justify-center p-2.5 rounded-xl text-zinc-500 hover:text-lime-700 hover:bg-lime-50 border border-zinc-200 transition-colors"
+                  title="Editar ficha"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setPatientToDelete(patient)}
+                  className="flex items-center justify-center p-2.5 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-red-50 border border-zinc-200 transition-colors"
+                  title="Eliminar"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Mobile Pagination */}
+        {filteredPatients.length > rowsPerPage && (
+          <div className="bg-white rounded-2xl border border-zinc-200 px-4 py-3 flex items-center justify-between text-xs text-zinc-600">
+            <span>Página {currentPage} de {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded border border-zinc-200 bg-white hover:bg-zinc-100 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de confirmación estricta para eliminar paciente */}
