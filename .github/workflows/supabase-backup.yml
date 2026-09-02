@@ -1,0 +1,56 @@
+name: Supabase Database Backup
+
+on:
+  # Se ejecuta automáticamente todos los domingos a las 03:00 UTC (medianoche en Chile)
+  schedule:
+    - cron: '0 3 * * 0'
+  # Permite ejecutar el respaldo manualmente en cualquier momento desde la pestaña Actions en GitHub
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Generar Respaldo PostgreSQL
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar herramientas de PostgreSQL (pg_dump)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+
+      - name: Crear directorio de respaldos
+        run: mkdir -p backups
+
+      - name: Ejecutar pg_dump y respaldar Supabase
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "ERROR: El secret SUPABASE_DB_URL no está configurado en GitHub."
+            exit 1
+          fi
+
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          BACKUP_FILE="backups/supabase_backup_${TIMESTAMP}.sql"
+          
+          echo "Iniciando respaldo de la base de datos..."
+          # Realizar dump completo del esquema public
+          pg_dump "$SUPABASE_DB_URL" \
+            --clean \
+            --if-exists \
+            --no-owner \
+            --no-privileges \
+            --schema=public \
+            -f "$BACKUP_FILE"
+
+          # Comprimir el archivo para ahorrar espacio
+          gzip -9 "$BACKUP_FILE"
+          echo "Respaldo generado con éxito: ${BACKUP_FILE}.gz"
+          ls -lh backups/
+
+      - name: Guardar Respaldo como Artefacto Seguro en GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: backups/*.sql.gz
+          retention-days: 90 # Guarda cada respaldo seguro por 90 días en GitHub
