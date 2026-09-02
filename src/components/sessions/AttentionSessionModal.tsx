@@ -25,7 +25,9 @@ import {
   Edit3,
   Edit2,
   Check,
-  RotateCw
+  RotateCw,
+  FileDown,
+  Loader2
 } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -45,6 +47,7 @@ import {
 import { storageService } from '@/services/storageService'
 import { EditPatientModal } from '@/components/patients/EditPatientModal'
 import { CompleteGoalConfirmModal } from '@/components/ui/CompleteGoalConfirmModal'
+import { pdfExportService } from '@/services/pdfExportService'
 
 interface ExtendedObjective extends InterventionObjective {
   isFromPreviousSession?: boolean
@@ -95,6 +98,32 @@ export function AttentionSessionModal({
 
   // Edit Patient Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+
+  // Estado para exportación de PDF
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
+
+  const handleExportPdf = async () => {
+    if (!patient) return
+    try {
+      setIsExportingPdf(true)
+      const currentSessions = await storageService.getSessionsByPatientId(patient.id)
+      await pdfExportService.exportPatientClinicalRecord(patient, currentSessions)
+      showToast({
+        title: 'Ficha PDF Generada',
+        description: `Se ha descargado la ficha clínica completa de ${patient.nombre}.`,
+        type: 'success'
+      })
+    } catch (err) {
+      console.error('Error al generar PDF:', err)
+      showToast({
+        title: 'Error al exportar PDF',
+        description: 'Ocurrió un problema al generar el documento.',
+        type: 'error'
+      })
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
 
   // Format local current datetime for datetime-local input (YYYY-MM-DDTHH:mm)
   const getCurrentLocalDateTime = () => {
@@ -604,7 +633,25 @@ export function AttentionSessionModal({
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Botón Exportar PDF */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPdf}
+                  disabled={isExportingPdf}
+                  className="h-7 px-2.5 text-xs gap-1 font-semibold text-zinc-700 hover:text-emerald-800 border-zinc-300 bg-white"
+                  title="Descargar Ficha Clínica Completa en PDF"
+                >
+                  {isExportingPdf ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                  ) : (
+                    <FileDown className="w-3.5 h-3.5 text-emerald-700" />
+                  )}
+                  <span>Exportar PDF</span>
+                </Button>
+
                 {/* Botón Editar Ficha Clínica */}
                 <Button
                   type="button"
@@ -1369,16 +1416,34 @@ export function AttentionSessionModal({
                     Historial de Atenciones ({pastSessions.length})
                   </h3>
                 </div>
-                <Button
-                  type="button"
-                  variant="lime"
-                  size="sm"
-                  onClick={() => setActiveTab('new_session')}
-                  className="gap-1.5 text-xs font-semibold"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  + Nueva Atención
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportPdf}
+                    disabled={isExportingPdf}
+                    className="gap-1.5 text-xs font-semibold text-zinc-700 hover:text-emerald-800 border-zinc-300 bg-white"
+                    title="Exportar ficha completa e historial de atenciones a PDF"
+                  >
+                    {isExportingPdf ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                    ) : (
+                      <FileDown className="w-3.5 h-3.5 text-emerald-700" />
+                    )}
+                    <span>Descargar Ficha PDF</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="lime"
+                    size="sm"
+                    onClick={() => setActiveTab('new_session')}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nueva Atención
+                  </Button>
+                </div>
               </div>
 
               {pastSessions.length === 0 ? (

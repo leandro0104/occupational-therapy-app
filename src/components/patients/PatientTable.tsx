@@ -11,15 +11,19 @@ import {
   ChevronsLeft,
   ChevronsRight,
   FilterX,
-  Edit3
+  Edit3,
+  FileDown,
+  Loader2
 } from 'lucide-react'
 import { Patient } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatDate } from '@/lib/utils'
+import { showToast } from '@/components/ui/toast'
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal'
 import { EditPatientModal } from '@/components/patients/EditPatientModal'
 import { storageService } from '@/services/storageService'
+import { pdfExportService } from '@/services/pdfExportService'
 
 interface PatientTableProps {
   patients: Patient[]
@@ -46,6 +50,31 @@ export function PatientTable({
   
   // Estado para modal de edición de ficha
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null)
+
+  // Estado para exportación de PDF con indicador de carga
+  const [exportingPatientId, setExportingPatientId] = useState<string | null>(null)
+
+  const handleExportPdf = async (patient: Patient) => {
+    try {
+      setExportingPatientId(patient.id)
+      const patientSessions = await storageService.getSessionsByPatientId(patient.id)
+      await pdfExportService.exportPatientClinicalRecord(patient, patientSessions)
+      showToast({
+        title: 'Ficha PDF Descargada',
+        description: `Se ha generado la ficha clínica completa de ${patient.nombre}.`,
+        type: 'success'
+      })
+    } catch (err) {
+      console.error('Error al exportar PDF:', err)
+      showToast({
+        title: 'Error al generar PDF',
+        description: 'No se pudo generar el documento PDF.',
+        type: 'error'
+      })
+    } finally {
+      setExportingPatientId(null)
+    }
+  }
 
   // Filter patients by Nombre, Rut, or Correo
   const filteredPatients = useMemo(() => {
@@ -290,6 +319,20 @@ export function PatientTable({
                             <span>Atención</span>
                           </button>
 
+                          {/* Botón Descargar Ficha PDF */}
+                          <button
+                            onClick={() => handleExportPdf(patient)}
+                            disabled={exportingPatientId === patient.id}
+                            className="p-1.5 rounded-md text-zinc-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                            title="Descargar Ficha Clínica Completa en PDF"
+                          >
+                            {exportingPatientId === patient.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                            ) : (
+                              <FileDown className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+
                           {/* Botón Editar Ficha */}
                           <button
                             onClick={() => setPatientToEdit(patient)}
@@ -458,6 +501,18 @@ export function PatientTable({
                 >
                   <Stethoscope className="w-3.5 h-3.5 text-lime-700" />
                   Atención
+                </button>
+                <button
+                  onClick={() => handleExportPdf(patient)}
+                  disabled={exportingPatientId === patient.id}
+                  className="flex items-center justify-center p-2.5 rounded-xl text-zinc-500 hover:text-emerald-700 hover:bg-emerald-50 border border-zinc-200 transition-colors disabled:opacity-50"
+                  title="Descargar Ficha PDF"
+                >
+                  {exportingPatientId === patient.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  ) : (
+                    <FileDown className="w-4 h-4" />
+                  )}
                 </button>
                 <button
                   onClick={() => setPatientToEdit(patient)}
