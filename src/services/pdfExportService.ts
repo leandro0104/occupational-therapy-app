@@ -6,7 +6,7 @@ import { formatDate, formatDateTime } from '@/lib/utils'
 export const pdfExportService = {
   /**
    * Genera y descarga un informe PDF clínico profesional de la ficha del paciente y su historial de atenciones.
-   * Diseño estructurado formal tipo informe médico/terapéutico (sin cajas de inputs artificiales).
+   * Diseño editorial formal, limpio, sin bordes de inputs ni líneas desalineadas.
    */
   async exportPatientClinicalRecord(patient: Patient, sessions: SessionEvolution[]): Promise<void> {
     // Ordenar sesiones cronológicamente (de la primera a la más reciente)
@@ -22,7 +22,7 @@ export const pdfExportService = {
     reportContainer.style.top = '0'
     reportContainer.style.width = '800px'
     reportContainer.style.backgroundColor = '#ffffff'
-    reportContainer.style.color = '#1e293b'
+    reportContainer.style.color = '#0f172a'
     reportContainer.style.fontFamily = 'Helvetica, Arial, sans-serif'
     reportContainer.style.padding = '40px 48px'
     reportContainer.style.boxSizing = 'border-box'
@@ -42,7 +42,7 @@ export const pdfExportService = {
     let sessionsHtml = ''
     if (sortedSessions.length === 0) {
       sessionsHtml = `
-        <div style="padding: 16px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; text-align: center; color: #64748b; font-size: 12px; margin-top: 8px;">
+        <div style="padding: 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; color: #64748b; font-size: 11.5px; margin-top: 6px;">
           No se registran atenciones clínicas previas para este paciente.
         </div>
       `
@@ -76,7 +76,7 @@ export const pdfExportService = {
 
               return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11.5px;">
-                  <span style="color: #334155; flex: 1; padding-right: 12px;">• ${obj.descripcion}</span>
+                  <span style="color: #334155; flex: 1; padding-right: 12px; line-height: 1.4;">• ${obj.descripcion}</span>
                   <span style="background-color: ${badgeColor}; color: ${badgeText}; border: 1px solid ${badgeBorder}; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap;">
                     ${statusLabel}
                   </span>
@@ -120,7 +120,7 @@ export const pdfExportService = {
                   <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; letter-spacing: 0.3px;">
                     Evolución y Observaciones Clínicas:
                   </div>
-                  <div style="font-size: 11.5px; color: #1e293b; line-height: 1.5; padding: 8px 10px; background-color: #f8fafc; border-radius: 4px; white-space: pre-line;">
+                  <div style="font-size: 11.5px; color: #0f172a; line-height: 1.5; padding: 8px 10px; background-color: #f8fafc; border-radius: 4px; white-space: pre-line;">
                     ${session.descripcionSesion || 'Sin observaciones registradas.'}
                   </div>
                 </div>
@@ -136,14 +136,14 @@ export const pdfExportService = {
     const historyList = patient.objetivosGeneralesHistorial || []
     if (historyList.length > 0) {
       generalObjectivesHistoryHtml = `
-        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
-          <div style="font-size: 11.5px; font-weight: 700; color: #166534; margin-bottom: 6px;">
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+          <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.2px;">
             Objetivos Generales Alcanzados Previamente (${historyList.length}):
           </div>
           ${historyList
             .map(
               (item, idx) => `
-            <div style="padding: 8px 12px; background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 4px; font-size: 11.5px; margin-bottom: 6px;">
+            <div style="padding: 8px 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 11.5px; margin-bottom: 6px;">
               <div style="display: flex; justify-content: space-between; font-weight: 600; color: #166534; margin-bottom: 2px;">
                 <span>#${idx + 1} "${item.objetivoGeneral}"</span>
                 <span style="font-size: 10.5px; color: #15803d;">Fecha: ${formatDate(item.fechaCompletado)}</span>
@@ -166,7 +166,7 @@ export const pdfExportService = {
     // Estructura completa del documento estilo informe clínico formal
     reportContainer.innerHTML = `
       <!-- ENCABEZADO FORMAL INSTITUCIONAL -->
-      <div style="border-bottom: 2px solid #166534; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div style="border-bottom: 2px solid #166534; padding-bottom: 12px; margin-bottom: 22px; display: flex; justify-content: space-between; align-items: flex-end;">
         <div>
           <div style="font-size: 18px; font-weight: 800; color: #166534; letter-spacing: -0.3px; text-transform: uppercase;">
             Informe de Terapia Ocupacional
@@ -180,17 +180,17 @@ export const pdfExportService = {
         </div>
 
         <div style="text-align: right;">
-          <div style="font-size: 11px; font-weight: 700; color: #166534; text-transform: uppercase; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; display: inline-block;">
+          <div style="font-size: 13px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">
             Ficha Clínica Integral
           </div>
-          <div style="font-size: 10.5px; color: #64748b; margin-top: 4px;">
+          <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">
             Fecha de Emisión: ${emissionDate} • ${emissionTime}
           </div>
         </div>
       </div>
 
       <!-- SECCIÓN 1: IDENTIFICACIÓN Y ANTECEDENTES DEL PACIENTE -->
-      <div style="margin-bottom: 20px;">
+      <div style="margin-bottom: 22px;">
         <div style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #166534; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;">
           1. Antecedentes Generales del Paciente
         </div>
@@ -228,59 +228,59 @@ export const pdfExportService = {
       </div>
 
       <!-- SECCIÓN 2: EVALUACIÓN CLÍNICA INICIAL -->
-      <div style="margin-bottom: 20px;">
-        <div style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #166534; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;">
+      <div style="margin-bottom: 22px;">
+        <div style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #166534; margin-bottom: 12px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;">
           2. Evaluación Clínica Inicial
         </div>
 
-        <div style="margin-bottom: 10px;">
-          <div style="font-size: 11px; font-weight: 700; color: #334155; text-transform: uppercase; margin-bottom: 3px;">
+        <div style="margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.2px;">
             2.1 Antecedentes y Motivo Detallado:
           </div>
-          <div style="font-size: 11.5px; color: #1e293b; line-height: 1.5; padding-left: 10px; border-left: 2px solid #cbd5e1;">
+          <div style="font-size: 11.5px; color: #0f172a; line-height: 1.5;">
             ${patient.evaluacion?.motivoConsultaDetalle || 'No registrado'}
           </div>
         </div>
 
-        <div style="margin-bottom: 10px;">
-          <div style="font-size: 11px; font-weight: 700; color: #334155; text-transform: uppercase; margin-bottom: 3px;">
+        <div style="margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.2px;">
             2.2 Observación Clínica Ocupacional:
           </div>
-          <div style="font-size: 11.5px; color: #1e293b; line-height: 1.5; padding-left: 10px; border-left: 2px solid #cbd5e1;">
+          <div style="font-size: 11.5px; color: #0f172a; line-height: 1.5;">
             ${patient.evaluacion?.evaluacionInicial || 'No registrada'}
           </div>
         </div>
 
-        <div style="margin-bottom: 10px;">
-          <div style="font-size: 11px; font-weight: 700; color: #334155; text-transform: uppercase; margin-bottom: 3px;">
+        <div style="margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.2px;">
             2.3 Instrumentos de Evaluación Aplicados:
           </div>
-          <div style="font-size: 11.5px; color: #1e293b; line-height: 1.5; padding-left: 10px; border-left: 2px solid #cbd5e1;">
+          <div style="font-size: 11.5px; color: #0f172a; line-height: 1.5;">
             ${patient.evaluacion?.instrumentosAplicados || 'No registrados'}
           </div>
         </div>
 
         <div>
-          <div style="font-size: 11px; font-weight: 700; color: #334155; text-transform: uppercase; margin-bottom: 3px;">
+          <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.2px;">
             2.4 Resultados y Síntesis Evaluativa:
           </div>
-          <div style="font-size: 11.5px; color: #1e293b; line-height: 1.5; padding-left: 10px; border-left: 2px solid #cbd5e1;">
+          <div style="font-size: 11.5px; color: #0f172a; line-height: 1.5;">
             ${patient.evaluacion?.resultados || 'No registrados'}
           </div>
         </div>
       </div>
 
       <!-- SECCIÓN 3: PLAN TERAPÉUTICO Y OBJETIVOS -->
-      <div style="margin-bottom: 20px;">
-        <div style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #166534; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;">
+      <div style="margin-bottom: 22px;">
+        <div style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #166534; margin-bottom: 12px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;">
           3. Plan Terapéutico y Objetivos
         </div>
 
-        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; padding: 10px 14px; border-radius: 4px;">
-          <div style="font-size: 10.5px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px;">
+        <div style="margin-bottom: 6px;">
+          <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.2px;">
             Objetivo General Activo (En Curso):
           </div>
-          <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.4;">
+          <div style="font-size: 12px; font-weight: 600; color: #0f172a; line-height: 1.5;">
             ${patient.objetivoGeneral ? `"${patient.objetivoGeneral}"` : '<span style="color: #64748b; font-weight: normal; font-style: italic;">Sin Objetivo General activo actualmente</span>'}
           </div>
         </div>
