@@ -1,9 +1,9 @@
 name: Supabase Database Backup
 
 on:
-  # Se ejecuta automáticamente todos los domingos a las 03:00 UTC (medianoche en Chile)
+  # Se ejecuta automaticamente cada 3 dias a las 03:00 UTC (medianoche en Chile)
   schedule:
-    - cron: '0 3 * * 0'
+    - cron: '0 3 */3 * *'
   # Permite ejecutar el respaldo manualmente en cualquier momento desde la pestaña Actions en GitHub
   workflow_dispatch:
 
