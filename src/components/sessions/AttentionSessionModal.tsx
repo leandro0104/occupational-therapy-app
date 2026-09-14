@@ -1137,20 +1137,20 @@ export function AttentionSessionModal({
                   </div>
                 </div>
 
-                {/* Descripción de la Sesión con límite 3000 caracteres */}
+                {/* Descripción de la Sesión con límite 4000 caracteres */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <Label htmlFor="descripcionSesion" required>
                       Descripción de la Sesión (Notas Clínicas y Observaciones)
                     </Label>
-                    <span className="text-[10px] text-zinc-400 font-mono">{descripcionSesion.length}/3000</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">{descripcionSesion.length}/4000</span>
                   </div>
                   <Textarea
                     id="descripcionSesion"
                     placeholder="Detalla las actividades realizadas, respuesta del usuario, niveles de alerta, adaptaciones implementadas y tareas para el hogar..."
                     value={descripcionSesion}
                     onChange={(e) => setDescripcionSesion(e.target.value)}
-                    maxLength={3000}
+                    maxLength={4000}
                     rows={4}
                     required
                   />

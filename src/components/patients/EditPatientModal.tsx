@@ -401,13 +401,13 @@ export function EditPatientModal({
                 <Label htmlFor="editEvaluacionInicial" required>
                   Evaluación Inicial (Observación Clínica Ocupacional)
                 </Label>
-                <span className="text-[10px] text-zinc-400 font-mono">{evaluacionInicial.length}/2000</span>
+                <span className="text-[10px] text-zinc-400 font-mono">{evaluacionInicial.length}/4000</span>
               </div>
               <Textarea
                 id="editEvaluacionInicial"
                 value={evaluacionInicial}
                 onChange={(e) => setEvaluacionInicial(e.target.value)}
-                maxLength={2000}
+                maxLength={4000}
                 rows={3}
                 required
               />
