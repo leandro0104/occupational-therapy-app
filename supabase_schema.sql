@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.patients (
     
     -- Evaluación Clínica Inicial
     motivo_consulta_detalle VARCHAR(1000) NOT NULL,
-    evaluacion_inicial VARCHAR(4000) NOT NULL,
+    evaluacion_inicial VARCHAR(10000) NOT NULL,
     instrumentos_aplicados VARCHAR(300) NOT NULL,
     resultados VARCHAR(2000) NOT NULL,
     
@@ -40,7 +40,7 @@ ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivo_general_id VARCHAR
 ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivo_general VARCHAR(300);
 ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivo_general_completado BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS objetivos_generales_historial JSONB DEFAULT '[]'::JSONB;
-ALTER TABLE public.patients ALTER COLUMN evaluacion_inicial TYPE VARCHAR(4000);
+ALTER TABLE public.patients ALTER COLUMN evaluacion_inicial TYPE VARCHAR(10000);
 
 -- 2. Tabla de Sesiones y Evoluciones Clínicas (Relacional)
 CREATE TABLE IF NOT EXISTS public.sessions (

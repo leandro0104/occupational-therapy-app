@@ -395,20 +395,20 @@ export function CreatePatientModal({
               />
             </div>
 
-            {/* Evaluación inicial (Máx 4000 caracteres) */}
+            {/* Evaluación inicial (Máx 10000 caracteres) */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <Label htmlFor="evaluacionInicial" required>
                   Evaluación Inicial (Observación Clínica Ocupacional)
                 </Label>
-                <span className="text-[10px] text-zinc-400 font-mono">{evaluacionInicial.length}/4000</span>
+                <span className="text-[10px] text-zinc-400 font-mono">{evaluacionInicial.length}/10000</span>
               </div>
               <Textarea
                 id="evaluacionInicial"
                 placeholder="Observación de desempeño ocupacional, juego, habilidades motoras, sensoriales o psicosociales..."
                 value={evaluacionInicial}
                 onChange={(e) => setEvaluacionInicial(e.target.value)}
-                maxLength={4000}
+                maxLength={10000}
                 rows={3}
                 required
               />
